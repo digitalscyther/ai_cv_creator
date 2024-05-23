@@ -49,6 +49,30 @@ async fn void() -> Result<ChatCompletionResponseMessage, OpenAIError> {
     return get_response(req).await
 }
 
+async fn user_test(){
+    let mut u = User::get_user(23).await.expect("failed get user");
+    info!("{:?}", &u.need());
+
+    u.set_profession("accountant");
+    info!("{:?}", u.need());
+
+    u.set_questions(vec!["foo", "bar", "baz"]);
+    info!("{:?}", u.need());
+
+    u.set_answer(0, "foo");
+    u.set_answer(1, "boo");
+    u.set_answer(2, "boo");
+    info!("{:?}", u.need());
+
+    u.set_result("u r good. go to work.");
+    info!("{:?}", u.need());
+
+    u.reset();
+    info!("{:?}", u.need());
+
+    // u.save().await.expect("failed save user");
+}
+
 
 #[tokio::main]
 async fn main() -> Result<(), OpenAIError> {
@@ -57,15 +81,12 @@ async fn main() -> Result<(), OpenAIError> {
         .with(EnvFilter::from_default_env())
         .init();
 
-    info!("hi");
+    info!("Started...");
 
     // let response_message = void().await;
     // info!("{:?}", response_message);
 
-    let mut u = User::get_user(23).await.expect("failed get user");
-    u.set_profession("accountant");
-    u.save().await.expect("failed save user");
-    info!("{:?}, {:?}", &u.need(), u);
+    user_test().await;
 
     Ok(())
 }
