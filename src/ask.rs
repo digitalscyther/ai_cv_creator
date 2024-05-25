@@ -1,5 +1,7 @@
+use std::fs::read_to_string;
 use async_openai::types::{ChatCompletionMessageToolCall, ChatCompletionResponseMessage, Role};
 use serde_json::{json, Value};
+use tracing::log::error;
 use crate::openai::{get_response, Request};
 
 #[derive(Debug)]
@@ -15,18 +17,19 @@ pub struct Asker {
     api_key: String,
     max_tokens: Option<u16>,
     model: Option<String>,
+    system_message: Option<(Role, String)>,
 }
 
 impl Asker {
-    pub fn new(api_key: String, max_tokens: Option<u16>, model: Option<String>) -> Self {
-        Asker { api_key, max_tokens, model }
+    pub fn new(api_key: String, max_tokens: Option<u16>, model: Option<String>, system_message: Option<(Role, String)>) -> Self {
+        Asker { api_key, max_tokens, model, system_message }
     }
 
     pub async fn get_profession(&self, messages: Vec<(Role, &str)>) -> Response {
         return self.abstract_get(
             messages,
             vec![
-                ("set_profession", "Set the profession", json!({
+                ("save_profession", "Save the profession", json!({
                 "type": "object",
                 "properties": {
                     "profession": {
@@ -37,6 +40,7 @@ impl Asker {
                 "required": ["profession"],
             }))
             ],
+            "./src/data/prompt_profession.txt",
             |tool_calls| {
                 if let Some(tool_call) = tool_calls.first() {
                     let arguments: Value = tool_call.function.arguments.parse().unwrap();
@@ -51,13 +55,30 @@ impl Asker {
         &self,
         messages: Vec<(Role, &str)>,
         raw_functions: Vec<(&str, &str, Value)>,
+        default_prompt_filepath: &str,
         custom_behavior: F,
     ) -> Response
         where
             F: Fn(&Vec<ChatCompletionMessageToolCall>) -> Response,
     {
+        let mut whole_messages: Vec<(Role, &str)> = vec![];
+        if let Some((role, message)) = self.system_message.clone() {
+            whole_messages.push((role, &message));
+        } else {
+            match read_to_string(default_prompt_filepath) {
+                Ok(text) => whole_messages.push((Role::System, text.as_str())),
+                Err(err) => {
+                    error!(
+                            "Failed get default prompt from filepath `{}`. {:?}",
+                            default_prompt_filepath, err
+                        )
+                }
+            }
+        }
+        whole_messages.extend(messages);
+
         let get_result = self.get(
-            messages,
+            whole_messages,
             raw_functions,
         ).await;
 
@@ -105,6 +126,7 @@ impl Asker {
                 "required": ["questions"],
             }))
             ],
+            "./src/data/prompt_questions.txt",
             |tool_calls| {
                 let mut questions = vec![];
 
@@ -148,6 +170,7 @@ impl Asker {
                 "required": ["index", "answer"],
             }))
             ],
+            "./src/data/prompt_answers.txt",
             |tool_calls| {
                 let mut answers = vec![];
 

@@ -77,7 +77,8 @@ async fn get_some() {
     let asker = Asker::new(
         env::var("OPENAI_API_KEY").expect("failed get openai_api_key"),
         None,
-        None
+        None,
+        None,
     );
 
     // let profession = asker.get_profession(
@@ -97,17 +98,11 @@ async fn get_some() {
 
     let answers = asker.get_answers(
         vec![
-            (Role::System, "You need to fill out a form asking the user questions. Form(+ - mean answered question):\
-            [0] Full Name [ ]\
-            [1] Age [+] 18\
-            [2] Sex [ ]\
-            \
-            Ask questions and fill form"),
+            (Role::System, "Here is the list of questions with their statuses:\
+            [0] Full Name - Answer: Alex Black\
+            [1] Age - Answer: [Unanswered]\
+            [2] Sex - Answer: male"),
             (Role::User, "Hello"),
-            (Role::Assistant, "Hi! I'm here to help you with filling out a form. Let's get started. What is your full name?"),
-            (Role::User, "Alex Black"),
-            (Role::Assistant, "Great! Thank you, Alex. How old are you?"),
-            (Role::User, "25"),
         ]
     ).await;
     info!("{:?}", answers);
