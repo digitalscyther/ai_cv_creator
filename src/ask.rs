@@ -1,31 +1,44 @@
 use std::fs::read_to_string;
-use async_openai::types::{ChatCompletionMessageToolCall, ChatCompletionResponseMessage, Role};
+use async_openai::types::{ChatCompletionMessageToolCall, ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionResponseMessage};
 use serde_json::{json, Value};
-use tracing::log::error;
 use crate::openai::{get_response, Request};
+
 
 #[derive(Debug)]
 pub enum Response {
     Text(String),
     Error(String),
-    Profession(String),
-    Questions(Vec<String>),
-    Answers(Vec<(u8, String)>),
+    Profession(ToolCallRequest, String),
+    Questions(ToolCallRequest, Vec<String>),
+    Answers(ChatCompletionRequestMessage, Vec<(ToolCallRequest, (u8, String))>),
+}
+
+#[derive(Debug)]
+pub struct ToolCallRequest {
+    pub call_id: String,
+    pub function_name: String,
+    pub request_message: Option<ChatCompletionRequestMessage>,
+}
+
+impl ToolCallRequest {
+    fn new(call_id: String, function_name: String, request_message: Option<ChatCompletionRequestMessage>) -> Self {
+        ToolCallRequest { call_id, function_name, request_message }
+    }
 }
 
 pub struct Asker {
     api_key: String,
     max_tokens: Option<u16>,
     model: Option<String>,
-    system_message: Option<(Role, String)>,
+    system_message: Option<String>,
 }
 
 impl Asker {
-    pub fn new(api_key: String, max_tokens: Option<u16>, model: Option<String>, system_message: Option<(Role, String)>) -> Self {
+    pub fn new(api_key: String, max_tokens: Option<u16>, model: Option<String>, system_message: Option<String>) -> Self {
         Asker { api_key, max_tokens, model, system_message }
     }
 
-    pub async fn get_profession(&self, messages: Vec<(Role, &str)>) -> Response {
+    pub async fn get_profession(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
         return self.abstract_get(
             messages,
             vec![
@@ -41,10 +54,17 @@ impl Asker {
             }))
             ],
             "./src/data/prompt_profession.txt",
-            |tool_calls| {
+            |tool_calls, response_message| {
                 if let Some(tool_call) = tool_calls.first() {
                     let arguments: Value = tool_call.function.arguments.parse().unwrap();
-                    return Response::Profession(arguments["profession"].to_string());
+                    return Response::Profession(
+                        ToolCallRequest::new(
+                            tool_call.id.clone(),
+                            tool_call.function.name.clone(),
+                            Some(to_request(response_message)),
+                        ),
+                        arguments["profession"].to_string(),
+                    );
                 };
                 return Response::Error("Exception #4699740191".to_string());
             },
@@ -53,39 +73,40 @@ impl Asker {
 
     async fn abstract_get<F>(
         &self,
-        messages: Vec<(Role, &str)>,
+        messages: Vec<ChatCompletionRequestMessage>,
         raw_functions: Vec<(&str, &str, Value)>,
         default_prompt_filepath: &str,
         custom_behavior: F,
     ) -> Response
         where
-            F: Fn(&Vec<ChatCompletionMessageToolCall>) -> Response,
+            F: Fn(&Vec<ChatCompletionMessageToolCall>, ChatCompletionResponseMessage) -> Response,
     {
-        let mut whole_messages: Vec<(Role, &str)> = vec![];
-        if let Some((role, message)) = self.system_message.clone() {
-            whole_messages.push((role, &message));
-        } else {
-            match read_to_string(default_prompt_filepath) {
-                Ok(text) => whole_messages.push((Role::System, text.as_str())),
-                Err(err) => {
-                    error!(
-                            "Failed get default prompt from filepath `{}`. {:?}",
-                            default_prompt_filepath, err
-                        )
-                }
-            }
-        }
-        whole_messages.extend(messages);
+        let default_message = read_to_string(default_prompt_filepath)
+            .expect(&format!("Failed to get default message from \"{default_prompt_filepath}\""));
+
+        let mut all_messages: Vec<ChatCompletionRequestMessage> = vec![
+            ChatCompletionRequestMessage::System(
+                ChatCompletionRequestSystemMessageArgs::default()
+                    .content(
+                        match &self.system_message {
+                            Some(message) => message,
+                            None => &default_message
+                        }
+                    )
+                    .build()
+                    .unwrap()
+            )
+        ];
+        all_messages.extend(messages);
 
         let get_result = self.get(
-            whole_messages,
-            raw_functions,
+            all_messages, raw_functions,
         ).await;
 
         match get_result {
             Ok(message) => {
-                if let Some(tool_calls) = message.tool_calls {
-                    return custom_behavior(&tool_calls);
+                if let Some(ref tool_calls) = message.tool_calls {
+                    return custom_behavior(tool_calls, message.clone());
                 };
                 return Response::Text(message.content.unwrap());
             }
@@ -93,7 +114,7 @@ impl Asker {
         }
     }
 
-    async fn get(&self, messages: Vec<(Role, &str)>, raw_functions: Vec<(&str, &str, Value)>) -> Result<ChatCompletionResponseMessage, &'static str> {
+    async fn get(&self, messages: Vec<ChatCompletionRequestMessage>, raw_functions: Vec<(&str, &str, Value)>) -> Result<ChatCompletionResponseMessage, &'static str> {
         let request = Request::new(
             self.api_key.clone(),
             messages,
@@ -105,7 +126,7 @@ impl Asker {
         return get_response(request).await.map_err(|_| "openai_error");
     }
 
-    pub async fn get_questions(&self, messages: Vec<(Role, &str)>) -> Response {
+    pub async fn get_questions(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
         return self.abstract_get(
             messages,
             vec![
@@ -127,31 +148,29 @@ impl Asker {
             }))
             ],
             "./src/data/prompt_questions.txt",
-            |tool_calls| {
-                let mut questions = vec![];
-
+            |tool_calls, response_message| {
                 for tool_call in tool_calls {
                     if let Ok(args) = parse_json(&tool_call.function.arguments) {
                         if let Some(qs) = args["questions"].as_array() {
-                            for q in qs {
-                                if let Some(question) = q.as_str() {
-                                    questions.push(question.to_string());
-                                }
-                            }
+                            return Response::Questions(
+                                ToolCallRequest::new(
+                                    tool_call.id.clone(),
+                                    tool_call.function.name.clone(),
+                                    Some(to_request(response_message)),
+                                ),
+                                qs.iter()
+                                    .map(move |x| x.to_string())
+                                    .collect(),
+                            );
                         }
                     }
                 }
-
-                if !questions.is_empty() {
-                    Response::Questions(questions)
-                } else {
-                    Response::Error("Exception #6407321013".to_string())
-                }
+                Response::Error("Exception #6407321013".to_string())
             },
         ).await;
     }
 
-    pub async fn get_answers(&self, messages: Vec<(Role, &str)>) -> Response {
+    pub async fn get_answers(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
         return self.abstract_get(
             messages,
             vec![
@@ -171,22 +190,30 @@ impl Asker {
             }))
             ],
             "./src/data/prompt_answers.txt",
-            |tool_calls| {
-                let mut answers = vec![];
+            |tool_calls, response_message| {
+                let mut answers: Vec<(ToolCallRequest, (u8, String))> = vec![];
 
                 for tool_call in tool_calls {
                     if let Ok(args) = parse_json(&tool_call.function.arguments) {
                         let index = args["index"].as_u64().unwrap() as u8;
                         let answer = args["answer"].as_str().unwrap();
-                        answers.push((index, answer.to_string()))
+                        answers.push(
+                            (
+                                ToolCallRequest::new(
+                                    tool_call.id.clone(),
+                                    tool_call.function.name.clone(),
+                                    None,
+                                ),
+                                (index, answer.to_string())
+                            )
+                        );
                     }
                 }
 
-                if !answers.is_empty() {
-                    Response::Answers(answers)
-                } else {
-                    Response::Error("Exception #6407321013".to_string())
-                }
+                return match answers.is_empty() {
+                    true => Response::Error("Exception #6407321013".to_string()),
+                    false => Response::Answers(to_request(response_message), answers)
+                };
             },
         ).await;
     }
@@ -194,4 +221,14 @@ impl Asker {
 
 fn parse_json(json_str: &str) -> Result<Value, serde_json::Error> {
     serde_json::from_str(json_str)
+}
+
+fn to_request(response: ChatCompletionResponseMessage) -> ChatCompletionRequestMessage {
+    ChatCompletionRequestMessage::Assistant(
+        ChatCompletionRequestAssistantMessageArgs::default()
+            .content(response.content.unwrap())
+            .tool_calls(response.tool_calls.unwrap())
+            .build()
+            .expect("Failed #4143141532467235")
+    )
 }

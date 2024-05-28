@@ -2,6 +2,7 @@ mod openai;
 mod user;
 mod db;
 mod ask;
+mod dialogue;
 
 
 use std::env;
@@ -12,41 +13,10 @@ use async_openai::types::{ChatCompletionResponseMessage, Role};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tracing::{info};
 use crate::ask::Asker;
+use crate::dialogue::Dialogue;
 use crate::openai::{get_response, Request};
 use crate::user::User;
 
-
-async fn void() -> Result<ChatCompletionResponseMessage, OpenAIError> {
-    let api_key = env::var("OPENAI_API_KEY").expect("failed get openai_api_key");
-
-    let raw_functions = vec![
-            ("get_current_weather", "Get the current weather in a given location", json!({
-                "type": "object",
-                "properties": {
-                    "location": {
-                        "type": "string",
-                        "description": "The city and state, e.g. San Francisco, CA",
-                    },
-                    "unit": { "type": "string", "enum": ["celsius", "fahrenheit"] },
-                },
-                "required": ["location"],
-            }))
-        ];
-
-    let req: Request = Request::new(
-        api_key.to_string(),
-        vec![
-            (Role::System, "Before answering ask user name"),
-            (Role::User, "What's the weather like in Boston?")
-        ],
-        None,
-        None,
-        raw_functions,
-        // None,
-    );
-
-    return get_response(req).await
-}
 
 async fn user_test(){
     let mut u = User::get_user(23).await.expect("failed get user");
@@ -55,7 +25,7 @@ async fn user_test(){
     u.set_profession("accountant");
     info!("{:?}", u.need());
 
-    u.set_questions(vec!["foo", "bar", "baz"]);
+    u.set_questions(vec!["foo", "bar", "baz"].iter().map(|s| s.to_string()).collect());
     info!("{:?}", u.need());
 
     u.set_answer(0, "foo");
@@ -72,40 +42,20 @@ async fn user_test(){
     // u.save().await.expect("failed save user");
 }
 
-
-async fn get_some() {
-    let asker = Asker::new(
-        env::var("OPENAI_API_KEY").expect("failed get openai_api_key"),
+async fn dialogue_test() {
+    let mut u = User::get_user(50).await.expect("failed get user");
+    let a = Asker::new(
+        env::var("OPENAI_API_KEY").expect("foo"),
+        Some(300),
         None,
-        None,
-        None,
+        None
     );
 
-    // let profession = asker.get_profession(
-    //     vec![
-    //         (Role::System, "find out from the user what profession is interesting to him and save it"),
-    //         (Role::User, "I'm interested in the profession of Rust developer"),
-    //     ]
-    // ).await;
-    // info!("{:?}", profession);
+    let mut dialogue = Dialogue::new(u, a);
 
-    // let questions = asker.get_questions(
-    //     vec![
-    //         (Role::System, "Generate questions, the answers to which are needed to create a resume for Rust developer. Save them."),
-    //     ]
-    // ).await;
-    // info!("{:?}", questions);
+    let response = dialogue.process_message(Some("hello".to_string())).await.expect("foo");
 
-    let answers = asker.get_answers(
-        vec![
-            (Role::System, "Here is the list of questions with their statuses:\
-            [0] Full Name - Answer: Alex Black\
-            [1] Age - Answer: [Unanswered]\
-            [2] Sex - Answer: male"),
-            (Role::User, "Hello"),
-        ]
-    ).await;
-    info!("{:?}", answers);
+    info!("{:?}", response);
 }
 
 #[tokio::main]
@@ -122,7 +72,7 @@ async fn main() -> Result<(), OpenAIError> {
 
     // user_test().await;
 
-    get_some().await;
+    dialogue_test().await;
 
     Ok(())
 }

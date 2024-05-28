@@ -1,3 +1,4 @@
+use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestToolMessageArgs};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use crate::db;
@@ -40,6 +41,7 @@ pub struct User {
     profession: Option<String>,
     questions: Option<Vec<Question>>,
     result: Option<String>,
+    messages: Vec<ChatCompletionRequestMessage>
 }
 
 impl User {
@@ -87,7 +89,7 @@ impl User {
         self.profession = Some(profession.to_string());
     }
 
-    pub fn set_questions(&mut self, questions: Vec<&str>) {
+    pub fn set_questions(&mut self, questions: Vec<String>) {
         self.questions =
             Some(
                 questions
@@ -100,7 +102,7 @@ impl User {
 
     pub fn set_answer(&mut self, ind: u8, answer: &str) -> Option<&'static str> {
         if let Some(ref mut questions) = &mut self.questions {
-            if let Some(mut q) = questions.get_mut(ind as usize) {
+            if let Some(q) = questions.get_mut(ind as usize) {
                 q.set_answer(answer);
                 return None;
             }
@@ -117,5 +119,24 @@ impl User {
 
     pub fn reset(&mut self) {
         *self = User::new(self.id);
+    }
+
+    pub fn get_messages(&self) -> Vec<ChatCompletionRequestMessage> {
+        return self.messages.clone()
+    }
+
+    pub fn add_message(&mut self, message: ChatCompletionRequestMessage) {
+        self.messages.push(message);
+    }
+
+    pub fn add_func_success(&mut self, call_id: &str, _: &str) {
+        self.add_message(
+            ChatCompletionRequestMessage::Tool(
+                ChatCompletionRequestToolMessageArgs::default()
+                    .tool_call_id(call_id)
+                    .content("success")
+                    .build().unwrap()
+            )
+        );
     }
 }

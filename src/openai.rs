@@ -3,13 +3,11 @@ use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
 use async_openai::types::{
     ChatCompletionRequestMessage,
-    ChatCompletionRequestUserMessageArgs,
     ChatCompletionResponseMessage,
     ChatCompletionTool,
     ChatCompletionToolArgs,
     CreateChatCompletionRequestArgs,
     FunctionObjectArgs,
-    Role
 };
 use derivative::Derivative;
 use serde_json::{Value};
@@ -32,23 +30,11 @@ pub struct Request {
 impl Request {
     pub fn new(
         api_key: String,
-        raw_messages: Vec<(Role, &str)>,
+        messages: Vec<ChatCompletionRequestMessage>,
         max_tokens: Option<u16>,
         model: Option<String>,
         raw_functions: Vec<(&str, &str, Value)>,
     ) -> Self {
-        let messages: Vec<ChatCompletionRequestMessage> = raw_messages
-            .into_iter()
-            .map(|(role, content)| {
-                ChatCompletionRequestUserMessageArgs::default()
-                    .role(role)
-                    .content(content)
-                    .build()
-                    .unwrap()
-                    .into()
-            })
-            .collect();
-
         let tool_calls: Vec<ChatCompletionTool> = raw_functions
             .into_iter()
             .map(|(name, description, parameters)| {
@@ -84,7 +70,7 @@ pub async fn get_response(request: Request) -> Result<ChatCompletionResponseMess
     let client = Client::with_config(config);
 
     let mut args = CreateChatCompletionRequestArgs::default();
-    let mut request_builder = args
+    let request_builder = args
         .max_tokens(request.max_tokens)
         .model(request.model)
         .messages(request.messages);
