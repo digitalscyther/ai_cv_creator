@@ -224,11 +224,17 @@ fn parse_json(json_str: &str) -> Result<Value, serde_json::Error> {
 }
 
 fn to_request(response: ChatCompletionResponseMessage) -> ChatCompletionRequestMessage {
-    ChatCompletionRequestMessage::Assistant(
-        ChatCompletionRequestAssistantMessageArgs::default()
-            .content(response.content.unwrap())
-            .tool_calls(response.tool_calls.unwrap())
-            .build()
-            .expect("Failed #4143141532467235")
-    )
+    let mut message_args = ChatCompletionRequestAssistantMessageArgs::default();
+
+    if let Some(content) = response.content {
+        message_args.content(content);
+    }
+
+    if let Some(tool_calls) = response.tool_calls {
+        message_args.tool_calls(tool_calls);
+    }
+
+    let message = message_args.build().expect("Failed #4143141532467235");
+
+    ChatCompletionRequestMessage::Assistant(message)
 }

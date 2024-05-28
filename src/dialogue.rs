@@ -1,4 +1,4 @@
-use async_openai::types::{ChatCompletionRequestUserMessageArgs};
+use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestUserMessageArgs};
 use crate::ask::{Asker, Response};
 use crate::user::{Need, User};
 
@@ -13,13 +13,15 @@ impl Dialogue {
     }
 
     pub async fn process_message(&mut self, text: Option<String>) -> Option<String> {
-        self.user.add_message(
-            ChatCompletionRequestUserMessageArgs::default()
-                .content(text.unwrap())
-                .build()
-                .expect("failed build ChatCompletionRequestUserMessageArgs")
-                .into()
-        );
+        if let Some(text) = text {
+            self.user.add_message(
+                ChatCompletionRequestUserMessageArgs::default()
+                    .content(text)
+                    .build()
+                    .expect("failed build ChatCompletionRequestUserMessageArgs")
+                    .into()
+            )
+        }
 
         let messages = self.user.get_messages();
 
@@ -31,8 +33,17 @@ impl Dialogue {
                         self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
                         self.user.set_profession(&profession);
                         None
-                    },
-                    Response::Text(text) => Some(text),
+                    }
+                    Response::Text(text) => {
+                        self.user.add_message(
+                            ChatCompletionRequestMessage::Assistant(
+                                ChatCompletionRequestAssistantMessageArgs::default()
+                                    .content(&text)
+                                    .build().unwrap()
+                            )
+                        );
+                        Some(text)
+                    }
                     _ => panic!("Profession case _")
                 }
             }
@@ -43,8 +54,17 @@ impl Dialogue {
                         self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
                         self.user.set_questions(questions);
                         None
-                    },
-                    Response::Text(text) => Some(text),
+                    }
+                    Response::Text(text) => {
+                        self.user.add_message(
+                            ChatCompletionRequestMessage::Assistant(
+                                ChatCompletionRequestAssistantMessageArgs::default()
+                                    .content(&text)
+                                    .build().unwrap()
+                            )
+                        );
+                        Some(text)
+                    }
                     _ => panic!("Response case _")
                 }
             }
@@ -59,8 +79,17 @@ impl Dialogue {
                             self.user.set_answer(index, &answer);
                         }
                         None
-                    },
-                    Response::Text(text) => Some(text),
+                    }
+                    Response::Text(text) => {
+                        self.user.add_message(
+                            ChatCompletionRequestMessage::Assistant(
+                                ChatCompletionRequestAssistantMessageArgs::default()
+                                    .content(&text)
+                                    .build().unwrap()
+                            )
+                        );
+                        Some(text)
+                    }
                     _ => panic!("Response case _")
                 }
             }
@@ -73,6 +102,10 @@ impl Dialogue {
                 Some("the end".to_string())
             }
         }
+    }
+
+    pub async fn save_user(&mut self) {
+        self.user.save().await.expect("dialogue user save failed")
     }
 }
 

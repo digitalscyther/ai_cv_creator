@@ -5,7 +5,7 @@ mod ask;
 mod dialogue;
 
 
-use std::env;
+use std::{env, io};
 use serde_json::json;
 use std::error::Error;
 use async_openai::error::OpenAIError;
@@ -53,9 +53,23 @@ async fn dialogue_test() {
 
     let mut dialogue = Dialogue::new(u, a);
 
-    let response = dialogue.process_message(Some("hello".to_string())).await.expect("foo");
+    println!("Start...");
+    loop {
+        println!(">>> ");
 
-    info!("{:?}", response);
+        let mut text = String::new();
+
+        io::stdin().read_line(&mut text).expect("Failed to read line");
+
+        let mut response = dialogue.process_message(Some(text.trim().to_string())).await;
+
+        while response.is_none() {
+            response = dialogue.process_message(response).await;
+        }
+        dialogue.save_user().await;
+
+        println!("{:?}", response);
+    }
 }
 
 #[tokio::main]
