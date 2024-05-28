@@ -18,7 +18,7 @@ use crate::openai::{get_response, Request};
 use crate::user::User;
 
 
-async fn user_test(){
+async fn user_test() {
     let mut u = User::get_user(23).await.expect("failed get user");
     info!("{:?}", &u.need());
 
@@ -43,12 +43,12 @@ async fn user_test(){
 }
 
 async fn dialogue_test() {
-    let mut u = User::get_user(50).await.expect("failed get user");
+    let u = User::get_user(50).await.expect("failed get user");
     let a = Asker::new(
         env::var("OPENAI_API_KEY").expect("foo"),
         Some(300),
         None,
-        None
+        None,
     );
 
     let mut dialogue = Dialogue::new(u, a);

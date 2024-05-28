@@ -1,6 +1,8 @@
-use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestUserMessageArgs};
+use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs};
 use crate::ask::{Asker, Response};
 use crate::user::{Need, User};
+
+const MAX_HISTORY: usize = 5_000;
 
 pub struct Dialogue {
     user: User,
@@ -23,7 +25,7 @@ impl Dialogue {
             )
         }
 
-        let messages = self.user.get_messages();
+        let messages = self.user.get_messages(Some(MAX_HISTORY));
 
         match self.user.need() {
             Need::Profession => {
@@ -65,10 +67,24 @@ impl Dialogue {
                         );
                         Some(text)
                     }
+                    Response::Error(text) => panic!("Error case {:?}", text),
                     _ => panic!("Response case _")
                 }
             }
             Need::Answers => {
+                let messages = match self.user.get_answers_as_json_str() {
+                    Some(answers) => merge_messages(
+                        vec![
+                            ChatCompletionRequestMessage::System(
+                                ChatCompletionRequestSystemMessageArgs::default()
+                                    .content(answers)
+                                    .build().unwrap()
+                            )
+                        ],
+                        messages,
+                    ),
+                    None => messages
+                };
                 match self.asker.get_answers(messages).await {
                     Response::Answers(
                         func_request_message, answers
@@ -90,6 +106,7 @@ impl Dialogue {
                         );
                         Some(text)
                     }
+                    Response::Error(text) => panic!("Error case {:?}", text),
                     _ => panic!("Response case _")
                 }
             }
@@ -107,5 +124,12 @@ impl Dialogue {
     pub async fn save_user(&mut self) {
         self.user.save().await.expect("dialogue user save failed")
     }
+}
+
+fn merge_messages(messages0: Vec<ChatCompletionRequestMessage>, messages1: Vec<ChatCompletionRequestMessage>) -> Vec<ChatCompletionRequestMessage> {
+    let mut merged_messages = Vec::with_capacity(messages0.len() + messages1.len());
+    merged_messages.extend(messages0.into_iter());
+    merged_messages.extend(messages1.into_iter());
+    merged_messages
 }
 

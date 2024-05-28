@@ -114,7 +114,7 @@ impl Asker {
         }
     }
 
-    async fn get(&self, messages: Vec<ChatCompletionRequestMessage>, raw_functions: Vec<(&str, &str, Value)>) -> Result<ChatCompletionResponseMessage, &'static str> {
+    async fn get(&self, messages: Vec<ChatCompletionRequestMessage>, raw_functions: Vec<(&str, &str, Value)>) -> Result<ChatCompletionResponseMessage, String> {
         let request = Request::new(
             self.api_key.clone(),
             messages,
@@ -123,7 +123,7 @@ impl Asker {
             raw_functions,
         );
 
-        return get_response(request).await.map_err(|_| "openai_error");
+        return get_response(request).await.map_err(|err| format!("openai_error: {:?}", err));
     }
 
     pub async fn get_questions(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {

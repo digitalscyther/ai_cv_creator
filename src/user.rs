@@ -1,4 +1,4 @@
-use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestToolMessageArgs};
+use async_openai::types::{ ChatCompletionRequestMessage, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageContent};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use crate::db;
@@ -121,8 +121,36 @@ impl User {
         *self = User::new(self.id);
     }
 
-    pub fn get_messages(&self) -> Vec<ChatCompletionRequestMessage> {
-        return self.messages.clone()
+    pub fn get_messages(&self, limit: Option<usize>) -> Vec<ChatCompletionRequestMessage> {
+        if !limit.is_some() {
+            return self.messages.clone();
+        }
+
+        let limit = limit.unwrap();
+        let mut messages = vec![];
+
+        let mut counter = 0;
+        for m in self.messages.iter().rev() {
+            let content = match m.clone() {
+                ChatCompletionRequestMessage::System(sm) => sm.content,
+                ChatCompletionRequestMessage::User(um) => match um.content {
+                    ChatCompletionRequestUserMessageContent::Text(t) => t,
+                    ChatCompletionRequestUserMessageContent::Array(_) => "".to_string(),
+                },
+                ChatCompletionRequestMessage::Assistant(am) => am.content.unwrap_or("".to_string()),
+                ChatCompletionRequestMessage::Tool(tm) => tm.content,
+                ChatCompletionRequestMessage::Function(fm) => fm.content.unwrap_or("".to_string()),
+            };
+            counter = counter + content.len();
+
+            if counter > limit {
+                break
+            }
+            messages.push(m.clone());
+        }
+        messages.reverse();
+
+        return messages;
     }
 
     pub fn add_message(&mut self, message: ChatCompletionRequestMessage) {
@@ -138,5 +166,14 @@ impl User {
                     .build().unwrap()
             )
         );
+    }
+
+    pub fn get_answers_as_json_str(&self) -> Option<String> {
+        if let Some(questions) = &self.questions {
+            if let Ok(json_string) = serde_json::to_string(&questions) {
+                return Some(json_string);
+            }
+        }
+        None
     }
 }
