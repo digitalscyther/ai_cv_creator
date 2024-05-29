@@ -2,6 +2,7 @@ use async_openai::types::{ ChatCompletionRequestMessage, ChatCompletionRequestTo
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use crate::db;
+use crate::message::Message;
 
 #[derive(Debug)]
 pub enum Need {
@@ -13,7 +14,7 @@ pub enum Need {
 }
 
 #[derive(Derivative, Deserialize, Serialize)]
-#[derivative(Debug, Default)]
+#[derivative(Debug, Clone, Default)]
 struct Question {
     index: u8,
     question: String,
@@ -44,10 +45,46 @@ pub struct User {
     messages: Vec<ChatCompletionRequestMessage>
 }
 
+#[derive(Derivative, Deserialize, Serialize)]
+#[derivative(Debug, Default)]
+pub struct UserWithCustomMessages {
+    pub id: u64,
+    profession: Option<String>,
+    questions: Option<Vec<Question>>,
+    result: Option<String>,
+    messages: Vec<Message>
+}
+
+impl UserWithCustomMessages {
+    pub fn from_original(user: &User) -> Self {
+        let messages = user.messages.iter().map(|msg| Message::from_original(msg.clone())).collect();
+
+        UserWithCustomMessages {
+            id: user.id,
+            profession: user.profession.clone(),
+            questions: user.questions.clone(),
+            result: user.result.clone(),
+            messages,
+        }
+    }
+
+    pub fn into_original(self) -> User {
+        let messages = self.messages.into_iter().map(|msg| msg.into_original()).collect();
+
+        User {
+            id: self.id,
+            profession: self.profession,
+            questions: self.questions,
+            result: self.result,
+            messages,
+        }
+    }
+}
+
 impl User {
     pub async fn get_user(id: u64) -> Result<User, &'static str> {
         match db::load_user(id).await {
-            Some(user) => Ok(user),
+            Some(u) => Ok(u.into_original()),
             None => {
                 Ok(User::new(id))
             }
@@ -81,7 +118,7 @@ impl User {
     }
 
     pub async fn save(&self) -> Result<(), &'static str> {
-        db::save_user(&self).await.map_err(|e| e)?;
+        db::save_user(UserWithCustomMessages::from_original(self)).await.map_err(|e| e)?;
         Ok(())
     }
 

@@ -3,17 +3,19 @@ mod user;
 mod db;
 mod ask;
 mod dialogue;
+mod message;
 
 
 use std::{env, io};
 use serde_json::json;
 use std::error::Error;
 use async_openai::error::OpenAIError;
-use async_openai::types::{ChatCompletionResponseMessage, Role};
+use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestFunctionMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageArgs, ChatCompletionResponseMessage, Role};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tracing::{info};
 use crate::ask::Asker;
 use crate::dialogue::Dialogue;
+use crate::message::Message;
 use crate::openai::{get_response, Request};
 use crate::user::User;
 
@@ -72,6 +74,27 @@ async fn dialogue_test() {
     }
 }
 
+fn custom_message_test() {
+    // Wrap them in the enum
+    let messages = vec![
+        ChatCompletionRequestMessage::System(ChatCompletionRequestSystemMessageArgs::default().build().unwrap()),
+        ChatCompletionRequestMessage::User(ChatCompletionRequestUserMessageArgs::default().build().unwrap()),
+        ChatCompletionRequestMessage::Assistant(ChatCompletionRequestAssistantMessageArgs::default().build().unwrap()),
+        ChatCompletionRequestMessage::Tool(ChatCompletionRequestToolMessageArgs::default().build().unwrap()),
+        ChatCompletionRequestMessage::Function(ChatCompletionRequestFunctionMessageArgs::default().build().unwrap()),
+    ];
+
+    // Serialize and deserialize each message
+    for msg in messages {
+        let message_wrapper = Message::from_original(msg);
+        let serialized = serde_json::to_string(&message_wrapper).unwrap();
+        println!("Serialized: {}", serialized);
+
+        let deserialized: Message = serde_json::from_str(&serialized).unwrap();
+        println!("Deserialized: {:?}", deserialized);
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), OpenAIError> {
     tracing_subscriber::registry()
@@ -87,6 +110,8 @@ async fn main() -> Result<(), OpenAIError> {
     // user_test().await;
 
     dialogue_test().await;
+
+    // custom_message_test();
 
     Ok(())
 }
