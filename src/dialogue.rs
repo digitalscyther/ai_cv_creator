@@ -14,7 +14,7 @@ impl Dialogue {
         Self { user, asker }
     }
 
-    pub async fn process_message(&mut self, text: Option<String>) -> Option<String> {
+    pub async fn process_message(&mut self, text: Option<&str>) -> Option<String> {
         if let Some(text) = text {
             self.user.add_message(
                 ChatCompletionRequestUserMessageArgs::default()
@@ -44,7 +44,7 @@ impl Dialogue {
                                     .build().unwrap()
                             )
                         );
-                        Some(text)
+                        Some(text.to_string())
                     }
                     _ => panic!("Profession case _")
                 }
@@ -65,27 +65,14 @@ impl Dialogue {
                                     .build().unwrap()
                             )
                         );
-                        Some(text)
+                        Some(text.to_string())
                     }
                     Response::Error(text) => panic!("Error case {:?}", text),
                     _ => panic!("Response case _")
                 }
             }
             Need::Answers => {
-                let messages = match self.user.get_answers_as_json_str() {
-                    Some(answers) => merge_messages(
-                        vec![
-                            ChatCompletionRequestMessage::System(
-                                ChatCompletionRequestSystemMessageArgs::default()
-                                    .content(answers)
-                                    .build().unwrap()
-                            )
-                        ],
-                        messages,
-                    ),
-                    None => messages
-                };
-                match self.asker.get_answers(messages).await {
+                match self.asker.get_answers(self.answer_with_messages(messages)).await {
                     Response::Answers(
                         func_request_message, answers
                     ) => {
@@ -104,25 +91,60 @@ impl Dialogue {
                                     .build().unwrap()
                             )
                         );
-                        Some(text)
+                        Some(text.to_string())
                     }
                     Response::Error(text) => panic!("Error case {:?}", text),
                     _ => panic!("Response case _")
                 }
             }
-            Need::Result => {
-                let result = "result #foo";
-                self.user.set_result(&result);
-                Some(result.to_string())
+            Need::Resume => {
+                match self.asker.get_resume(self.answer_with_messages(messages)).await {
+                    Response::Resume(tool_call, resume) => {
+                        self.user.add_message(tool_call.request_message.unwrap());
+                        self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
+                        self.user.set_resume(&resume);
+                        self.user.get_resume()
+                    }
+                    Response::Text(text) => {
+                        self.user.add_message(
+                            ChatCompletionRequestMessage::Assistant(
+                                ChatCompletionRequestAssistantMessageArgs::default()
+                                    .content(&text)
+                                    .build().unwrap()
+                            )
+                        );
+                        Some(text.to_string())
+                    }
+                    _ => panic!("Profession case _")
+                }
             }
             Need::None => {
-                Some("the end".to_string())
+                match text {
+                    Some(text) if text == "resume" => self.user.get_resume(),
+                    _ => Some("the end".to_string())
+                }
             }
         }
     }
 
     pub async fn save_user(&mut self) {
         self.user.save().await.expect("dialogue user save failed")
+    }
+
+    fn answer_with_messages(&self, messages: Vec<ChatCompletionRequestMessage>) -> Vec<ChatCompletionRequestMessage> {
+        match self.user.get_answers_as_json_str() {
+            Some(answers) => merge_messages(
+                vec![
+                    ChatCompletionRequestMessage::System(
+                        ChatCompletionRequestSystemMessageArgs::default()
+                            .content(answers)
+                            .build().unwrap()
+                    )
+                ],
+                messages,
+            ),
+            None => messages
+        }
     }
 }
 

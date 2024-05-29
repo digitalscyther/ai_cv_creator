@@ -35,7 +35,7 @@ async fn user_test() {
     u.set_answer(2, "boo");
     info!("{:?}", u.need());
 
-    u.set_result("u r good. go to work.");
+    u.set_resume("u r good. go to work.");
     info!("{:?}", u.need());
 
     u.reset();
@@ -63,10 +63,13 @@ async fn dialogue_test() {
 
         io::stdin().read_line(&mut text).expect("Failed to read line");
 
-        let mut response = dialogue.process_message(Some(text.trim().to_string())).await;
+        let mut response = dialogue.process_message(Some(text.trim())).await;
 
         while response.is_none() {
-            response = dialogue.process_message(response).await;
+            response = dialogue.process_message(match response {
+                Some(ref t) => Some(&t),
+                _ => None
+            }).await;
         }
         dialogue.save_user().await;
 

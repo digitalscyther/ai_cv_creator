@@ -11,6 +11,7 @@ pub enum Response {
     Profession(ToolCallRequest, String),
     Questions(ToolCallRequest, Vec<String>),
     Answers(ChatCompletionRequestMessage, Vec<(ToolCallRequest, (u8, String))>),
+    Resume(ToolCallRequest, String),
 }
 
 #[derive(Debug)]
@@ -39,7 +40,7 @@ impl Asker {
     }
 
     pub async fn get_profession(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
-        return self.abstract_get(
+        self.get_string(
             messages,
             vec![
                 ("save_profession", "Save the profession", json!({
@@ -54,16 +55,36 @@ impl Asker {
             }))
             ],
             "./src/data/prompt_profession.txt",
+            "profession",
+            Response::Profession,
+        ).await
+    }
+
+    async fn get_string<F>(
+        &self,
+        messages: Vec<ChatCompletionRequestMessage>,
+        raw_functions: Vec<(&str, &str, Value)>,
+        file_path: &str,
+        result_field_name: &str,
+        response_type: F,
+    ) -> Response
+        where
+            F: Fn(ToolCallRequest, String) -> Response,
+    {
+        return self.abstract_get(
+            messages,
+            raw_functions,
+            file_path,
             |tool_calls, response_message| {
                 if let Some(tool_call) = tool_calls.first() {
                     let arguments: Value = tool_call.function.arguments.parse().unwrap();
-                    return Response::Profession(
+                    return response_type(
                         ToolCallRequest::new(
                             tool_call.id.clone(),
                             tool_call.function.name.clone(),
                             Some(to_request(response_message)),
                         ),
-                        arguments["profession"].to_string(),
+                        arguments[result_field_name].to_string(),
                     );
                 };
                 return Response::Error("Exception #4699740191".to_string());
@@ -215,6 +236,26 @@ impl Asker {
                     false => Response::Answers(to_request(response_message), answers)
                 };
             },
+        ).await;
+    }
+
+    pub async fn get_resume(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
+        return self.get_string(
+            messages,
+            vec![
+                ("save_resume", "Save the resume", json!({
+                "type": "object",
+                "properties": {
+                    "resume": {
+                        "type": "string"
+                    },
+                },
+                "required": ["resume"],
+            }))
+            ],
+            "./src/data/prompt_resume.txt",
+            "resume",
+            Response::Resume,
         ).await;
     }
 }

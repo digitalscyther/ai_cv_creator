@@ -1,4 +1,4 @@
-use async_openai::types::{ ChatCompletionRequestMessage, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageContent};
+use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageContent};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use crate::db;
@@ -9,7 +9,7 @@ pub enum Need {
     Profession,
     Questions,
     Answers,
-    Result,
+    Resume,
     None,
 }
 
@@ -18,6 +18,7 @@ pub enum Need {
 struct Question {
     index: u8,
     question: String,
+    // #[serde(skip_serializing_if = "Option::is_none")]
     answer: Option<String>,
 }
 
@@ -41,8 +42,8 @@ pub struct User {
     pub id: u64,
     profession: Option<String>,
     questions: Option<Vec<Question>>,
-    result: Option<String>,
-    messages: Vec<ChatCompletionRequestMessage>
+    resume: Option<String>,
+    messages: Vec<ChatCompletionRequestMessage>,
 }
 
 #[derive(Derivative, Deserialize, Serialize)]
@@ -51,8 +52,8 @@ pub struct UserWithCustomMessages {
     pub id: u64,
     profession: Option<String>,
     questions: Option<Vec<Question>>,
-    result: Option<String>,
-    messages: Vec<Message>
+    resume: Option<String>,
+    messages: Vec<Message>,
 }
 
 impl UserWithCustomMessages {
@@ -63,7 +64,7 @@ impl UserWithCustomMessages {
             id: user.id,
             profession: user.profession.clone(),
             questions: user.questions.clone(),
-            result: user.result.clone(),
+            resume: user.resume.clone(),
             messages,
         }
     }
@@ -75,7 +76,7 @@ impl UserWithCustomMessages {
             id: self.id,
             profession: self.profession,
             questions: self.questions,
-            result: self.result,
+            resume: self.resume,
             messages,
         }
     }
@@ -99,13 +100,13 @@ impl User {
     }
 
     pub fn need(&self) -> Need {
-        if self.result.is_some() {
+        if self.resume.is_some() {
             return Need::None;
         }
 
         if let Some(questions) = &self.questions {
             return match questions.iter().all(|q| q.answer.is_some()) {
-                true => Need::Result,
+                true => Need::Resume,
                 false => Need::Answers,
             };
         }
@@ -150,8 +151,12 @@ impl User {
         return Some("no questions");
     }
 
-    pub fn set_result(&mut self, result: &str) {
-        self.result = Some(result.to_string());
+    pub fn set_resume(&mut self, resume: &str) {
+        self.resume = Some(resume.to_string());
+    }
+
+    pub fn get_resume(&self) -> Option<String> {
+        self.resume.clone()
     }
 
     pub fn reset(&mut self) {
@@ -181,7 +186,7 @@ impl User {
             counter = counter + content.len();
 
             if counter > limit {
-                break
+                break;
             }
             messages.push(m.clone());
         }

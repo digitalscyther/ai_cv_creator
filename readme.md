@@ -5,7 +5,7 @@
 
 ## TODO
 - [ ] real expectations
-- [ ] generate result
+- [x] generate result
 - [ ] add tokens limit
 - [ ] add telegram
 - [ ] real database integration

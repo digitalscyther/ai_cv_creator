@@ -1,0 +1,3 @@
+Generate a plain text resume using the following data from next message.
+The Data is JSON. But result need as plain text which I can use in email for sending it to my HR.
+Save Generated resume.
