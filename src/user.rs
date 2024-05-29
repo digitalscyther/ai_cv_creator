@@ -44,6 +44,7 @@ pub struct User {
     questions: Option<Vec<Question>>,
     resume: Option<String>,
     messages: Vec<ChatCompletionRequestMessage>,
+    tokens_spent: u32,
 }
 
 #[derive(Derivative, Deserialize, Serialize)]
@@ -54,6 +55,7 @@ pub struct UserWithCustomMessages {
     questions: Option<Vec<Question>>,
     resume: Option<String>,
     messages: Vec<Message>,
+    tokens_spent: u32,
 }
 
 impl UserWithCustomMessages {
@@ -66,6 +68,7 @@ impl UserWithCustomMessages {
             questions: user.questions.clone(),
             resume: user.resume.clone(),
             messages,
+            tokens_spent: user.tokens_spent,
         }
     }
 
@@ -78,6 +81,7 @@ impl UserWithCustomMessages {
             questions: self.questions,
             resume: self.resume,
             messages,
+            tokens_spent: self.tokens_spent,
         }
     }
 }
@@ -217,5 +221,13 @@ impl User {
             }
         }
         None
+    }
+
+    pub fn add_tokens_spent(&mut self, tokens: u32) {
+        self.tokens_spent += tokens;
+    }
+
+    pub fn not_enough_tokens(&self, tokens: u32) -> bool {
+        self.tokens_spent >= tokens
     }
 }

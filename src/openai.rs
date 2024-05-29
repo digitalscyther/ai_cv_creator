@@ -64,8 +64,12 @@ impl Request {
     }
 }
 
+pub struct ChatResponse {
+    pub message: ChatCompletionResponseMessage,
+    pub tokens_spent: u32,
+}
 
-pub async fn get_response(request: Request) -> Result<ChatCompletionResponseMessage, OpenAIError> {
+pub async fn get_response(request: Request) -> Result<ChatResponse, OpenAIError> {
     let config = OpenAIConfig::new().with_api_key(&request.api_key);
     let client = Client::with_config(config);
 
@@ -80,12 +84,17 @@ pub async fn get_response(request: Request) -> Result<ChatCompletionResponseMess
     };
     let request = request_builder.build()?;
 
-    Ok(client.chat()
+    let response = client.chat()
         .create(request)
-        .await?
-        .choices
-        .get(0)
-        .unwrap()
-        .message
-        .clone())
+        .await?;
+
+    Ok(
+        ChatResponse {
+            message: response.choices.get(0).unwrap().message.clone(),
+            tokens_spent: match response.usage {
+                Some(u) => u.total_tokens,
+                _ => 0
+            },
+        }
+    )
 }

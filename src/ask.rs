@@ -1,7 +1,7 @@
 use std::fs::read_to_string;
 use async_openai::types::{ChatCompletionMessageToolCall, ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionResponseMessage};
 use serde_json::{json, Value};
-use crate::openai::{get_response, Request};
+use crate::openai::{ChatResponse, get_response, Request};
 
 
 #[derive(Debug)]
@@ -12,6 +12,18 @@ pub enum Response {
     Questions(ToolCallRequest, Vec<String>),
     Answers(ChatCompletionRequestMessage, Vec<(ToolCallRequest, (u8, String))>),
     Resume(ToolCallRequest, String),
+}
+
+#[derive(Debug)]
+pub struct PayableResponse {
+    pub response: Response,
+    pub tokens_spent: u32,
+}
+
+impl PayableResponse {
+    fn new(response: Response, tokens_spent: u32) -> Self {
+        Self { response, tokens_spent }
+    }
 }
 
 #[derive(Debug)]
@@ -39,7 +51,7 @@ impl Asker {
         Asker { api_key, max_tokens, model, system_message }
     }
 
-    pub async fn get_profession(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
+    pub async fn get_profession(&self, messages: Vec<ChatCompletionRequestMessage>) -> PayableResponse {
         self.get_string(
             messages,
             vec![
@@ -67,7 +79,7 @@ impl Asker {
         file_path: &str,
         result_field_name: &str,
         response_type: F,
-    ) -> Response
+    ) -> PayableResponse
         where
             F: Fn(ToolCallRequest, String) -> Response,
     {
@@ -98,7 +110,7 @@ impl Asker {
         raw_functions: Vec<(&str, &str, Value)>,
         default_prompt_filepath: &str,
         custom_behavior: F,
-    ) -> Response
+    ) -> PayableResponse
         where
             F: Fn(&Vec<ChatCompletionMessageToolCall>, ChatCompletionResponseMessage) -> Response,
     {
@@ -124,18 +136,19 @@ impl Asker {
             all_messages, raw_functions,
         ).await;
 
-        match get_result {
-            Ok(message) => {
-                if let Some(ref tool_calls) = message.tool_calls {
-                    return custom_behavior(tool_calls, message.clone());
-                };
-                return Response::Text(message.content.unwrap());
+        let (tokens_spent, response) = match get_result {
+            Ok(chat_response) => {
+                (chat_response.tokens_spent, match chat_response.message.tool_calls {
+                    Some(ref tool_calls) => custom_behavior(tool_calls, chat_response.message.clone()),
+                    _ => Response::Text(chat_response.message.content.unwrap())
+                })
             }
-            Err(e) => Response::Error(e.to_string()),
-        }
+            Err(e) => (0, Response::Error(e.to_string())),
+        };
+        return PayableResponse::new(response, tokens_spent);
     }
 
-    async fn get(&self, messages: Vec<ChatCompletionRequestMessage>, raw_functions: Vec<(&str, &str, Value)>) -> Result<ChatCompletionResponseMessage, String> {
+    async fn get(&self, messages: Vec<ChatCompletionRequestMessage>, raw_functions: Vec<(&str, &str, Value)>) -> Result<ChatResponse, String> {
         let request = Request::new(
             self.api_key.clone(),
             messages,
@@ -147,7 +160,7 @@ impl Asker {
         return get_response(request).await.map_err(|err| format!("openai_error: {:?}", err));
     }
 
-    pub async fn get_questions(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
+    pub async fn get_questions(&self, messages: Vec<ChatCompletionRequestMessage>) -> PayableResponse {
         return self.abstract_get(
             messages,
             vec![
@@ -191,7 +204,7 @@ impl Asker {
         ).await;
     }
 
-    pub async fn get_answers(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
+    pub async fn get_answers(&self, messages: Vec<ChatCompletionRequestMessage>) -> PayableResponse {
         return self.abstract_get(
             messages,
             vec![
@@ -239,7 +252,7 @@ impl Asker {
         ).await;
     }
 
-    pub async fn get_resume(&self, messages: Vec<ChatCompletionRequestMessage>) -> Response {
+    pub async fn get_resume(&self, messages: Vec<ChatCompletionRequestMessage>) -> PayableResponse {
         return self.get_string(
             messages,
             vec![

@@ -3,6 +3,7 @@ use crate::ask::{Asker, Response};
 use crate::user::{Need, User};
 
 const MAX_HISTORY: usize = 5_000;
+const MAX_TOKENS: u32 = 50_000;
 
 pub struct Dialogue {
     user: User,
@@ -28,101 +29,118 @@ impl Dialogue {
         let messages = self.user.get_messages(Some(MAX_HISTORY));
 
         match self.user.need() {
-            Need::Profession => {
-                match self.asker.get_profession(messages).await {
-                    Response::Profession(tool_call, profession) => {
-                        self.user.add_message(tool_call.request_message.unwrap());
-                        self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
-                        self.user.set_profession(&profession);
-                        None
-                    }
-                    Response::Text(text) => {
-                        self.user.add_message(
-                            ChatCompletionRequestMessage::Assistant(
-                                ChatCompletionRequestAssistantMessageArgs::default()
-                                    .content(&text)
-                                    .build().unwrap()
-                            )
-                        );
-                        Some(text.to_string())
-                    }
-                    _ => panic!("Profession case _")
-                }
-            }
-            Need::Questions => {
-                match self.asker.get_questions(messages).await {
-                    Response::Questions(tool_call, questions) => {
-                        self.user.add_message(tool_call.request_message.unwrap());
-                        self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
-                        self.user.set_questions(questions);
-                        None
-                    }
-                    Response::Text(text) => {
-                        self.user.add_message(
-                            ChatCompletionRequestMessage::Assistant(
-                                ChatCompletionRequestAssistantMessageArgs::default()
-                                    .content(&text)
-                                    .build().unwrap()
-                            )
-                        );
-                        Some(text.to_string())
-                    }
-                    Response::Error(text) => panic!("Error case {:?}", text),
-                    _ => panic!("Response case _")
-                }
-            }
-            Need::Answers => {
-                match self.asker.get_answers(self.answer_with_messages(messages)).await {
-                    Response::Answers(
-                        func_request_message, answers
-                    ) => {
-                        self.user.add_message(func_request_message);
-                        for (tool_call, (index, answer)) in answers {
-                            self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
-                            self.user.set_answer(index, &answer);
-                        }
-                        None
-                    }
-                    Response::Text(text) => {
-                        self.user.add_message(
-                            ChatCompletionRequestMessage::Assistant(
-                                ChatCompletionRequestAssistantMessageArgs::default()
-                                    .content(&text)
-                                    .build().unwrap()
-                            )
-                        );
-                        Some(text.to_string())
-                    }
-                    Response::Error(text) => panic!("Error case {:?}", text),
-                    _ => panic!("Response case _")
-                }
-            }
-            Need::Resume => {
-                match self.asker.get_resume(self.answer_with_messages(messages)).await {
-                    Response::Resume(tool_call, resume) => {
-                        self.user.add_message(tool_call.request_message.unwrap());
-                        self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
-                        self.user.set_resume(&resume);
-                        self.user.get_resume()
-                    }
-                    Response::Text(text) => {
-                        self.user.add_message(
-                            ChatCompletionRequestMessage::Assistant(
-                                ChatCompletionRequestAssistantMessageArgs::default()
-                                    .content(&text)
-                                    .build().unwrap()
-                            )
-                        );
-                        Some(text.to_string())
-                    }
-                    _ => panic!("Profession case _")
-                }
-            }
             Need::None => {
                 match text {
                     Some(text) if text == "resume" => self.user.get_resume(),
                     _ => Some("the end".to_string())
                 }
+            }
+            others => {
+                if self.user.not_enough_tokens(MAX_TOKENS) {
+                    return Some("Limit exceed".to_string());
+                }
+
+                return match others {
+                    Need::None => unimplemented!(),
+                    Need::Profession => {
+                        let payable_response = self.asker.get_profession(messages).await;
+                        self.user.add_tokens_spent(payable_response.tokens_spent);
+                        match payable_response.response {
+                            Response::Profession(tool_call, profession) => {
+                                self.user.add_message(tool_call.request_message.unwrap());
+                                self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
+                                self.user.set_profession(&profession);
+                                None
+                            }
+                            Response::Text(text) => {
+                                self.user.add_message(
+                                    ChatCompletionRequestMessage::Assistant(
+                                        ChatCompletionRequestAssistantMessageArgs::default()
+                                            .content(&text)
+                                            .build().unwrap()
+                                    )
+                                );
+                                Some(text.to_string())
+                            }
+                            _ => panic!("Profession case _")
+                        }
+                    }
+                    Need::Questions => {
+                        let payable_response = self.asker.get_questions(messages).await;
+                        self.user.add_tokens_spent(payable_response.tokens_spent);
+                        match payable_response.response {
+                            Response::Questions(tool_call, questions) => {
+                                self.user.add_message(tool_call.request_message.unwrap());
+                                self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
+                                self.user.set_questions(questions);
+                                None
+                            }
+                            Response::Text(text) => {
+                                self.user.add_message(
+                                    ChatCompletionRequestMessage::Assistant(
+                                        ChatCompletionRequestAssistantMessageArgs::default()
+                                            .content(&text)
+                                            .build().unwrap()
+                                    )
+                                );
+                                Some(text.to_string())
+                            }
+                            Response::Error(text) => panic!("Error case {:?}", text),
+                            _ => panic!("Response case _")
+                        }
+                    }
+                    Need::Answers => {
+                        let payable_response = self.asker.get_answers(self.answer_with_messages(messages)).await;
+                        self.user.add_tokens_spent(payable_response.tokens_spent);
+                        match payable_response.response {
+                            Response::Answers(
+                                func_request_message, answers
+                            ) => {
+                                self.user.add_message(func_request_message);
+                                for (tool_call, (index, answer)) in answers {
+                                    self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
+                                    self.user.set_answer(index, &answer);
+                                }
+                                None
+                            }
+                            Response::Text(text) => {
+                                self.user.add_message(
+                                    ChatCompletionRequestMessage::Assistant(
+                                        ChatCompletionRequestAssistantMessageArgs::default()
+                                            .content(&text)
+                                            .build().unwrap()
+                                    )
+                                );
+                                Some(text.to_string())
+                            }
+                            Response::Error(text) => panic!("Error case {:?}", text),
+                            _ => panic!("Response case _")
+                        }
+                    }
+                    Need::Resume => {
+                        let payable_response = self.asker.get_resume(self.answer_with_messages(messages)).await;
+                        self.user.add_tokens_spent(payable_response.tokens_spent);
+                        match payable_response.response {
+                            Response::Resume(tool_call, resume) => {
+                                self.user.add_message(tool_call.request_message.unwrap());
+                                self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
+                                self.user.set_resume(&resume);
+                                self.user.get_resume()
+                            }
+                            Response::Text(text) => {
+                                self.user.add_message(
+                                    ChatCompletionRequestMessage::Assistant(
+                                        ChatCompletionRequestAssistantMessageArgs::default()
+                                            .content(&text)
+                                            .build().unwrap()
+                                    )
+                                );
+                                Some(text.to_string())
+                            }
+                            _ => panic!("Profession case _")
+                        }
+                    }
+                };
             }
         }
     }
