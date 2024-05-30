@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, profession, questions, resume, messages, tokens_spent\n        FROM users\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "profession",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "questions",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "resume",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "messages",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "tokens_spent",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "d2b2ab283bd2a884496e5ace367752d0bcdc69941474748838ecbbd1f19e8c23"
+}

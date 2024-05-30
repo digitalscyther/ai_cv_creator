@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: postgres
+    restart: always
+    command: postgres -c 'max_connections=2000'
+    volumes:
+      - ./data/pg_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=example
+      - POSTGRES_USER=portfolio
+      - POSTGRES_DB=portfolio
+#    ports:
+#      - "5436:5432"

@@ -51,12 +51,12 @@ pub struct User {
 #[derive(Derivative, Deserialize, Serialize)]
 #[derivative(Debug, Default)]
 pub struct UserWithCustomMessages {
-    pub id: u64,
-    profession: Option<String>,
-    questions: Option<Value>,
-    resume: Option<String>,
-    messages: Value,
-    tokens_spent: u32,
+    pub id: i32,
+    pub profession: Option<String>,
+    pub questions: Option<Value>,
+    pub resume: Option<String>,
+    pub messages: Value,
+    pub tokens_spent: i32,
 }
 
 impl UserWithCustomMessages {
@@ -66,12 +66,12 @@ impl UserWithCustomMessages {
             .map(|qs| serde_json::to_value(qs).unwrap_or_default());
 
         UserWithCustomMessages {
-            id: user.id,
+            id: user.id as i32,
             profession: user.profession.clone(),
             questions,
             resume: user.resume.clone(),
             messages,
-            tokens_spent: user.tokens_spent,
+            tokens_spent: user.tokens_spent as i32,
         }
     }
 
@@ -82,23 +82,24 @@ impl UserWithCustomMessages {
             .and_then(|qs| serde_json::from_value(qs.clone()).ok());
 
         User {
-            id: self.id,
+            id: self.id as u64,
             profession: self.profession,
             questions,
             resume: self.resume,
             messages,
-            tokens_spent: self.tokens_spent,
+            tokens_spent: self.tokens_spent as u32,
         }
     }
 }
 
 impl User {
     pub async fn get_user(id: u64) -> Result<User, &'static str> {
-        match db::load_user(id).await {
-            Some(u) => Ok(u.into_original()),
-            None => {
+        match db::load_user(id as i32).await {
+            Ok(Some(u)) => Ok(u.into_original()),
+            Ok(None) => {
                 Ok(User::new(id))
             }
+            _ => panic!("foo")
         }
     }
 
