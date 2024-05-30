@@ -17,6 +17,11 @@ impl Dialogue {
 
     pub async fn process_message(&mut self, text: Option<&str>) -> Option<String> {
         if let Some(text) = text {
+            if text == "reset" {
+                self.user.reset();
+                return Some("Data reset".to_string())
+            }
+
             self.user.add_message(
                 ChatCompletionRequestUserMessageArgs::default()
                     .content(text)

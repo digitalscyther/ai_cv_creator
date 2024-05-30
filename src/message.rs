@@ -1,4 +1,4 @@
-use async_openai::types::{ChatCompletionRequestAssistantMessage, ChatCompletionRequestFunctionMessage, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage, ChatCompletionRequestToolMessage, ChatCompletionRequestUserMessage};
+use async_openai::types::{ChatCompletionRequestMessage};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeStruct;
 use serde_json::Value;
@@ -25,25 +25,26 @@ impl Serialize for Message {
         match &self.0 {
             ChatCompletionRequestMessage::System(msg) => {
                 state.serialize_field("type", "system")?;
-                state.serialize_field("content", &serde_json::to_string(&msg).map_err(|_| "Serialization error").unwrap())?;
+                state.serialize_field("content", &serde_json::to_value(&msg).map_err(|_| "Serialization error").unwrap())?;
             }
             ChatCompletionRequestMessage::User(msg) => {
                 state.serialize_field("type", "user")?;
-                state.serialize_field("content", &serde_json::to_string(&msg).map_err(|_| "Serialization error").unwrap())?;
+                state.serialize_field("content", &serde_json::to_value(&msg).map_err(|_| "Serialization error").unwrap())?;
             }
             ChatCompletionRequestMessage::Assistant(msg) => {
                 state.serialize_field("type", "assistant")?;
-                state.serialize_field("content", &serde_json::to_string(&msg).map_err(|_| "Serialization error").unwrap())?;
+                state.serialize_field("content", &serde_json::to_value(&msg).map_err(|_| "Serialization error").unwrap())?;
             }
             ChatCompletionRequestMessage::Tool(msg) => {
                 state.serialize_field("type", "tool")?;
-                state.serialize_field("content", &serde_json::to_string(&msg).map_err(|_| "Serialization error").unwrap())?;
+                state.serialize_field("content", &serde_json::to_value(&msg).map_err(|_| "Serialization error").unwrap())?;
             }
             ChatCompletionRequestMessage::Function(msg) => {
                 state.serialize_field("type", "function")?;
-                state.serialize_field("content", &serde_json::to_string(&msg).map_err(|_| "Serialization error").unwrap())?;
+                state.serialize_field("content", &serde_json::to_value(&msg).map_err(|_| "Serialization error").unwrap())?;
             }
         }
+
         state.end()
     }
 }
@@ -61,23 +62,23 @@ impl<'de> Deserialize<'de> for Message {
 
         match msg_type {
             "system" => {
-                let msg = serde_json::from_str::<ChatCompletionRequestSystemMessage>(value["content"].as_str().unwrap()).expect("Failed deserialize ChatCompletionRequestSystemMessage");
+                let msg = serde_json::from_value(value["content"].clone()).map_err(|_| "Failed to deserialize ChatCompletionRequestSystemMessage").unwrap();
                 Ok(Message(ChatCompletionRequestMessage::System(msg)))
             }
             "user" => {
-                let msg = serde_json::from_str::<ChatCompletionRequestUserMessage>(value["content"].as_str().unwrap()).expect("Failed deserialize ChatCompletionRequestUserMessage");
+                let msg = serde_json::from_value(value["content"].clone()).map_err(|_| "Failed to deserialize ChatCompletionRequestUserMessage").unwrap();
                 Ok(Message(ChatCompletionRequestMessage::User(msg)))
             }
             "assistant" => {
-                let msg = serde_json::from_str::<ChatCompletionRequestAssistantMessage>(value["content"].as_str().unwrap()).expect("Failed deserialize ChatCompletionRequestAssistantMessage");
+                let msg = serde_json::from_value(value["content"].clone()).map_err(|_| "Failed to deserialize ChatCompletionRequestAssistantMessage").unwrap();
                 Ok(Message(ChatCompletionRequestMessage::Assistant(msg)))
             }
             "tool" => {
-                let msg = serde_json::from_str::<ChatCompletionRequestToolMessage>(value["content"].as_str().unwrap()).expect("Failed deserialize ChatCompletionRequestToolMessage");
+                let msg = serde_json::from_value(value["content"].clone()).map_err(|_| "Failed to deserialize ChatCompletionRequestToolMessage").unwrap();
                 Ok(Message(ChatCompletionRequestMessage::Tool(msg)))
             }
             "function" => {
-                let msg = serde_json::from_str::<ChatCompletionRequestFunctionMessage>(value["content"].as_str().unwrap()).expect("Failed deserialize ChatCompletionRequestFunctionMessage");
+                let msg = serde_json::from_value(value["content"].clone()).map_err(|_| "Failed to deserialize ChatCompletionRequestFunctionMessage").unwrap();
                 Ok(Message(ChatCompletionRequestMessage::Function(msg)))
             }
             _ => Err(serde::de::Error::unknown_variant(msg_type, &["system", "user", "assistant", "tool", "function"])),

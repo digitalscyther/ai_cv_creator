@@ -7,16 +7,13 @@ mod message;
 
 
 use std::{env, io};
-use serde_json::json;
-use std::error::Error;
 use async_openai::error::OpenAIError;
-use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestFunctionMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageArgs, ChatCompletionResponseMessage, Role};
+use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestFunctionMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageArgs};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tracing::{info};
 use crate::ask::Asker;
 use crate::dialogue::Dialogue;
 use crate::message::Message;
-use crate::openai::{get_response, Request};
 use crate::user::User;
 
 

@@ -1,6 +1,7 @@
 use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageContent};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use crate::db;
 use crate::message::Message;
 
@@ -52,20 +53,22 @@ pub struct User {
 pub struct UserWithCustomMessages {
     pub id: u64,
     profession: Option<String>,
-    questions: Option<Vec<Question>>,
+    questions: Option<Value>,
     resume: Option<String>,
-    messages: Vec<Message>,
+    messages: Value,
     tokens_spent: u32,
 }
 
 impl UserWithCustomMessages {
     pub fn from_original(user: &User) -> Self {
-        let messages = user.messages.iter().map(|msg| Message::from_original(msg.clone())).collect();
+        let messages = serde_json::to_value(user.messages.iter().map(|msg| Message::from_original(msg.clone())).collect::<Vec<_>>()).unwrap_or_default();
+        let questions = user.questions.as_ref()
+            .map(|qs| serde_json::to_value(qs).unwrap_or_default());
 
         UserWithCustomMessages {
             id: user.id,
             profession: user.profession.clone(),
-            questions: user.questions.clone(),
+            questions,
             resume: user.resume.clone(),
             messages,
             tokens_spent: user.tokens_spent,
@@ -73,12 +76,15 @@ impl UserWithCustomMessages {
     }
 
     pub fn into_original(self) -> User {
-        let messages = self.messages.into_iter().map(|msg| msg.into_original()).collect();
+        let messages = serde_json::from_value::<Vec<Message>>(self.messages).unwrap_or_default()
+            .into_iter().map(|msg| msg.into_original()).collect();
+        let questions = self.questions.as_ref()
+            .and_then(|qs| serde_json::from_value(qs.clone()).ok());
 
         User {
             id: self.id,
             profession: self.profession,
-            questions: self.questions,
+            questions,
             resume: self.resume,
             messages,
             tokens_spent: self.tokens_spent,
@@ -164,7 +170,9 @@ impl User {
     }
 
     pub fn reset(&mut self) {
-        *self = User::new(self.id);
+        let mut new_user = User::new(self.id);
+        new_user.tokens_spent = self.tokens_spent;
+        *self = new_user;
     }
 
     pub fn get_messages(&self, limit: Option<usize>) -> Vec<ChatCompletionRequestMessage> {
