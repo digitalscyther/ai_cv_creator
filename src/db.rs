@@ -4,7 +4,7 @@ use sqlx::postgres::PgPoolOptions;
 
 use crate::user::UserWithCustomMessages;
 
-async fn create_pool() -> Pool<Postgres> {
+pub async fn create_pool() -> Pool<Postgres> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     PgPoolOptions::new()
         .max_connections(5)
@@ -13,8 +13,7 @@ async fn create_pool() -> Pool<Postgres> {
         .expect("Failed to create pool")
 }
 
-pub async fn load_user(id: i32) -> Result<Option<UserWithCustomMessages>, Error> {
-    let pool = create_pool().await;
+pub async fn load_user(pool: &Pool<Postgres>, id: i32) -> Result<Option<UserWithCustomMessages>, Error> {
     let query = sqlx::query_as!(
         UserWithCustomMessages,
         r#"
@@ -24,7 +23,7 @@ pub async fn load_user(id: i32) -> Result<Option<UserWithCustomMessages>, Error>
         "#,
         id
     )
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await;
 
     match query {
@@ -33,8 +32,7 @@ pub async fn load_user(id: i32) -> Result<Option<UserWithCustomMessages>, Error>
     }
 }
 
-pub async fn save_user(user: UserWithCustomMessages) -> Result<(), &'static str> {
-    let pool = create_pool().await;
+pub async fn save_user(pool: &Pool<Postgres>, user: UserWithCustomMessages) -> Result<(), &'static str> {
     let query = sqlx::query!(
         r#"
         INSERT INTO users (id, profession, questions, resume, messages, tokens_spent)
@@ -53,7 +51,7 @@ pub async fn save_user(user: UserWithCustomMessages) -> Result<(), &'static str>
         user.messages,
         user.tokens_spent,
     )
-        .execute(&pool)
+        .execute(pool)
         .await;
 
     match query {
@@ -62,8 +60,7 @@ pub async fn save_user(user: UserWithCustomMessages) -> Result<(), &'static str>
     }
 }
 
-pub async fn new_user() -> Result<u64, &'static str> {
-    let pool = create_pool().await;
+pub async fn new_user(pool: &Pool<Postgres>) -> Result<u64, &'static str> {
     let rec = sqlx::query!(
         r#"
         INSERT INTO users ( tokens_spent )
@@ -72,7 +69,7 @@ pub async fn new_user() -> Result<u64, &'static str> {
         "#,
         0
     )
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await;
 
     match rec {

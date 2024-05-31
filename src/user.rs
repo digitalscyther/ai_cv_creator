@@ -2,6 +2,7 @@ use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestToo
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sqlx::{Pool, Postgres};
 use crate::db;
 use crate::message::Message;
 
@@ -93,13 +94,10 @@ impl UserWithCustomMessages {
 }
 
 impl User {
-    pub async fn get_user(id: u64) -> Result<User, &'static str> {
-        match db::load_user(id as i32).await {
-            Ok(Some(u)) => Ok(u.into_original()),
-            Ok(None) => {
-                Ok(User::new(id))
-            }
-            _ => panic!("foo")
+    pub async fn get_user(pool: &Pool<Postgres>, id: i32) -> Result<Option<User>, &'static str> {
+        match db::load_user(pool, id).await {
+            Ok(Some(u)) => Ok(Some(u.into_original())),
+            _ => Ok(None)
         }
     }
 
@@ -110,8 +108,8 @@ impl User {
         u
     }
 
-    pub async fn create_user() -> Result<User, &'static str> {
-        match db::new_user().await {
+    pub async fn create_user(pool: &Pool<Postgres>) -> Result<User, &'static str> {
+        match db::new_user(pool).await {
             Ok(id) => Ok(User::new(id)),
             _ => panic!("foo")
         }
@@ -136,8 +134,8 @@ impl User {
         Need::Profession
     }
 
-    pub async fn save(&self) -> Result<(), &'static str> {
-        db::save_user(UserWithCustomMessages::from_original(self)).await.map_err(|e| e)?;
+    pub async fn save(&self, pool: &Pool<Postgres>) -> Result<(), &'static str> {
+        db::save_user(pool, UserWithCustomMessages::from_original(self)).await.map_err(|e| e)?;
         Ok(())
     }
 
@@ -245,9 +243,5 @@ impl User {
 
     pub fn not_enough_tokens(&self, tokens: u32) -> bool {
         self.tokens_spent >= tokens
-    }
-
-    pub fn get_tokens_spent(&self) -> u32 {
-        self.tokens_spent
     }
 }

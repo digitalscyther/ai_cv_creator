@@ -1,4 +1,5 @@
 use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs};
+use sqlx::{Pool, Postgres};
 use crate::ask::{Asker, Response};
 use crate::user::{Need, User};
 
@@ -154,8 +155,8 @@ impl Dialogue {
         }
     }
 
-    pub async fn save_user(&mut self) {
-        self.user.save().await.expect("dialogue user save failed")
+    pub async fn save_user(&mut self, pool: &Pool<Postgres>) {
+        self.user.save(pool).await.expect("dialogue user save failed")
     }
 
     fn answer_with_messages(&self, messages: Vec<ChatCompletionRequestMessage>) -> Vec<ChatCompletionRequestMessage> {

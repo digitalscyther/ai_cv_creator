@@ -6,95 +6,58 @@ mod dialogue;
 mod message;
 
 
-use std::{env, io};
+use std::{env};
+use std::time::Duration;
 use async_openai::error::OpenAIError;
-use async_openai::types::{ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestFunctionMessageArgs, ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestToolMessageArgs, ChatCompletionRequestUserMessageArgs};
+use axum::error_handling::HandleErrorLayer;
+use axum::{BoxError, Json, Router};
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::routing::{get, post};
+use serde::{Deserialize, Serialize};
+use sqlx::{Pool, Postgres};
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tracing::{info};
 use crate::ask::Asker;
+use crate::db::create_pool;
 use crate::dialogue::Dialogue;
-use crate::message::Message;
-use crate::user::User;
 
 
-async fn user_test() {
-    let mut u = User::get_user(23).await.expect("failed get user");
-    info!("{:?}", &u.need());
+async fn get_answer(pool: &Pool<Postgres>, user: user::User, message: UserMessage) -> Result<String, &'static str> {
+    let default_api_key = env::var("OPENAI_API_KEY").expect("foo");
+    let default_max_tokens = Some(300);
+    let a = match message.open_ai {
+        Some(open_ai) => Asker::new(
+            open_ai.api_key.unwrap_or(default_api_key),
+            open_ai.max_tokens.or(default_max_tokens),
+            open_ai.model,
+            None,
+        ),
+        None => Asker::new(
+            default_api_key,
+            default_max_tokens,
+            None,
+            None,
+        )
+    };
 
-    u.set_profession("accountant");
-    info!("{:?}", u.need());
+    let mut dialogue = Dialogue::new(user, a, message.max_history, message.max_tokens);
 
-    u.set_questions(vec!["foo", "bar", "baz"].iter().map(|s| s.to_string()).collect());
-    info!("{:?}", u.need());
+    let mut response = dialogue.process_message(Some(message.text.trim())).await;
 
-    u.set_answer(0, "foo");
-    u.set_answer(1, "boo");
-    u.set_answer(2, "boo");
-    info!("{:?}", u.need());
-
-    u.set_resume("u r good. go to work.");
-    info!("{:?}", u.need());
-
-    u.reset();
-    info!("{:?}", u.need());
-
-    // u.save().await.expect("failed save user");
-}
-
-async fn dialogue_test() {
-    let u = User::get_user(1).await.expect("failed get user");
-    // let u = User::create_user().await.expect("failed create user");
-    info!("user id={:?}, tokens_spent={:?}", u.id, u.get_tokens_spent());
-    let a = Asker::new(
-        env::var("OPENAI_API_KEY").expect("foo"),
-        Some(300),
-        None,
-        None,
-    );
-
-    let mut dialogue = Dialogue::new(u, a, None, None);
-
-    println!("Start...");
-    loop {
-        println!(">>> ");
-
-        let mut text = String::new();
-
-        io::stdin().read_line(&mut text).expect("Failed to read line");
-
-        let mut response = dialogue.process_message(Some(text.trim())).await;
-
-        while response.is_none() {
-            response = dialogue.process_message(match response {
-                Some(ref t) => Some(&t),
-                _ => None
-            }).await;
-        }
-        dialogue.save_user().await;
-
-        println!("{:?}", response);
+    while response.is_none() {
+        response = dialogue.process_message(match response {
+            Some(ref t) => Some(&t),
+            _ => None
+        }).await;
     }
-}
 
-fn custom_message_test() {
-    // Wrap them in the enum
-    let messages = vec![
-        ChatCompletionRequestMessage::System(ChatCompletionRequestSystemMessageArgs::default().build().unwrap()),
-        ChatCompletionRequestMessage::User(ChatCompletionRequestUserMessageArgs::default().build().unwrap()),
-        ChatCompletionRequestMessage::Assistant(ChatCompletionRequestAssistantMessageArgs::default().build().unwrap()),
-        ChatCompletionRequestMessage::Tool(ChatCompletionRequestToolMessageArgs::default().build().unwrap()),
-        ChatCompletionRequestMessage::Function(ChatCompletionRequestFunctionMessageArgs::default().build().unwrap()),
-    ];
+    dialogue.save_user(pool).await;
 
-    // Serialize and deserialize each message
-    for msg in messages {
-        let message_wrapper = Message::from_original(msg);
-        let serialized = serde_json::to_string(&message_wrapper).unwrap();
-        println!("Serialized: {}", serialized);
-
-        let deserialized: Message = serde_json::from_str(&serialized).unwrap();
-        println!("Deserialized: {:?}", deserialized);
-    }
+    Ok(response.unwrap())
 }
 
 #[tokio::main]
@@ -106,14 +69,82 @@ async fn main() -> Result<(), OpenAIError> {
 
     info!("Started...");
 
-    // let response_message = void().await;
-    // info!("{:?}", response_message);
+    let pool = create_pool().await;
 
-    // user_test().await;
+    let app = Router::new()
+        .route("/users", post(user_create))
+        .route("/users/:id", get(user_get))
+        .route("/users/:id/message", post(user_message))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|error: BoxError| async move {
+                    if error.is::<tower::timeout::error::Elapsed>() {
+                        Ok(StatusCode::REQUEST_TIMEOUT)
+                    } else {
+                        Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("Unhandled internal error: {error}"),
+                        ))
+                    }
+                }))
+                .timeout(Duration::from_secs(10))
+                .layer(TraceLayer::new_for_http())
+                .into_inner(),
+        )
+        .with_state(pool);
 
-    dialogue_test().await;
-
-    // custom_message_test();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
+    tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    axum::serve(listener, app).await.unwrap();
 
     Ok(())
+}
+
+async fn user_create(State(pool): State<Pool<Postgres>>) -> impl IntoResponse {
+    let u = user::User::create_user(&pool).await.expect("todo");
+
+    let user = User { id: u.id };
+
+    (StatusCode::CREATED, Json(user))
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct User {
+    id: u64
+}
+
+async fn user_get(Path(id): Path<i32>, State(pool): State<Pool<Postgres>>) -> impl IntoResponse {
+    let u = user::User::get_user(&pool, id).await;
+
+    match u {
+        Ok(Some(u)) => Ok(Json(u)),
+        _ => Err(StatusCode::NOT_FOUND)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAI {
+    api_key: Option<String>,
+    max_tokens: Option<u16>,
+    model: Option<String>
+}
+
+#[derive(Debug, Deserialize)]
+struct UserMessage {
+    text: String,
+    open_ai: Option<OpenAI>,
+    max_history: Option<usize>,
+    max_tokens: Option<u32>,
+}
+
+async fn user_message(Path(id): Path<i32>, State(pool): State<Pool<Postgres>>, Json(message): Json<UserMessage>) -> impl IntoResponse {
+    if let Ok(Some(u)) = user::User::get_user(&pool, id).await {
+        if let Ok(answer) = get_answer(&pool, u, message).await {
+            return Ok(Json(answer));
+        }
+    }
+
+    Err(StatusCode::INTERNAL_SERVER_ERROR)
 }
