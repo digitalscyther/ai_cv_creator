@@ -43,7 +43,7 @@ async fn user_test() {
 
 async fn dialogue_test() {
     let u = User::get_user(1).await.expect("failed get user");
-    // let u = User::create_user().await.expect("failed get user");
+    // let u = User::create_user().await.expect("failed create user");
     info!("user id={:?}, tokens_spent={:?}", u.id, u.get_tokens_spent());
     let a = Asker::new(
         env::var("OPENAI_API_KEY").expect("foo"),
