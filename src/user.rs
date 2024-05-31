@@ -103,11 +103,18 @@ impl User {
         }
     }
 
-    fn new(id: u64) -> Self {
+    pub fn new(id: u64) -> Self {
         let mut u = User::default();
         u.id = id;
 
         u
+    }
+
+    pub async fn create_user() -> Result<User, &'static str> {
+        match db::new_user().await {
+            Ok(id) => Ok(User::new(id)),
+            _ => panic!("foo")
+        }
     }
 
     pub fn need(&self) -> Need {
@@ -238,5 +245,9 @@ impl User {
 
     pub fn not_enough_tokens(&self, tokens: u32) -> bool {
         self.tokens_spent >= tokens
+    }
+
+    pub fn get_tokens_spent(&self) -> u32 {
+        self.tokens_spent
     }
 }

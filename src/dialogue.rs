@@ -8,11 +8,15 @@ const MAX_TOKENS: u32 = 50_000;
 pub struct Dialogue {
     user: User,
     asker: Asker,
+    max_history: usize,
+    max_tokens: u32,
 }
 
 impl Dialogue {
-    pub fn new(user: User, asker: Asker) -> Self {
-        Self { user, asker }
+    pub fn new(user: User, asker: Asker, max_history: Option<usize>, max_tokens: Option<u32>) -> Self {
+        let max_history = max_history.unwrap_or(MAX_HISTORY);
+        let max_tokens = max_tokens.unwrap_or(MAX_TOKENS);
+        Self { user, asker, max_history, max_tokens }
     }
 
     pub async fn process_message(&mut self, text: Option<&str>) -> Option<String> {
@@ -31,7 +35,7 @@ impl Dialogue {
             )
         }
 
-        let messages = self.user.get_messages(Some(MAX_HISTORY));
+        let messages = self.user.get_messages(Some(self.max_history));
 
         match self.user.need() {
             Need::None => {
@@ -41,7 +45,7 @@ impl Dialogue {
                 }
             }
             others => {
-                if self.user.not_enough_tokens(MAX_TOKENS) {
+                if self.user.not_enough_tokens(self.max_tokens) {
                     return Some("Limit exceed".to_string());
                 }
 

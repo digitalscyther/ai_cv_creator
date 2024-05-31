@@ -24,8 +24,8 @@ pub async fn load_user(id: i32) -> Result<Option<UserWithCustomMessages>, Error>
         "#,
         id
     )
-    .fetch_one(&pool)
-    .await;
+        .fetch_one(&pool)
+        .await;
 
     match query {
         Ok(user) => Ok(Some(user)),
@@ -53,11 +53,30 @@ pub async fn save_user(user: UserWithCustomMessages) -> Result<(), &'static str>
         user.messages,
         user.tokens_spent,
     )
-    .execute(&pool)
-    .await;
+        .execute(&pool)
+        .await;
 
     match query {
         Ok(_) => Ok(()),
         Err(_) => Err("Failed to save user data"),
+    }
+}
+
+pub async fn new_user() -> Result<u64, &'static str> {
+    let pool = create_pool().await;
+    let rec = sqlx::query!(
+        r#"
+        INSERT INTO users ( tokens_spent )
+        VALUES ( $1 )
+        RETURNING id
+        "#,
+        0
+    )
+        .fetch_one(&pool)
+        .await;
+
+    match rec {
+        Ok(rec) => Ok(rec.id as u64),
+        Err(_) => Err("Failed to create new user"),
     }
 }
