@@ -91,7 +91,7 @@ async fn main() -> Result<(), OpenAIError> {
                         ))
                     }
                 }))
-                .timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(60))
                 .layer(TraceLayer::new_for_http())
                 .into_inner(),
         )
