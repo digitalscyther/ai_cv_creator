@@ -71,6 +71,10 @@ async fn main() -> Result<(), OpenAIError> {
 
     let pool = create_pool().await;
 
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await.expect("failed migrations");
+
     let app = Router::new()
         .route("/users", post(user_create))
         .route("/users/:id", get(user_get))
@@ -93,7 +97,10 @@ async fn main() -> Result<(), OpenAIError> {
         )
         .with_state(pool);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let bind_address = format!("{}:{}", host, port);
+    let listener = tokio::net::TcpListener::bind(bind_address)
         .await
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
@@ -112,7 +119,7 @@ async fn user_create(State(pool): State<Pool<Postgres>>) -> impl IntoResponse {
 
 #[derive(Debug, Serialize, Clone)]
 struct User {
-    id: u64
+    id: u64,
 }
 
 async fn user_get(Path(id): Path<i32>, State(pool): State<Pool<Postgres>>) -> impl IntoResponse {
@@ -128,7 +135,7 @@ async fn user_get(Path(id): Path<i32>, State(pool): State<Pool<Postgres>>) -> im
 struct OpenAI {
     api_key: Option<String>,
     max_tokens: Option<u16>,
-    model: Option<String>
+    model: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

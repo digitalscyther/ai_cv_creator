@@ -72,7 +72,7 @@ impl Dialogue {
                                 );
                                 Some(text.to_string())
                             }
-                            _ => panic!("Profession case _")
+                            smt => panic!("Profession case _: {:?}", smt)
                         }
                     }
                     Need::Questions => {
@@ -96,7 +96,7 @@ impl Dialogue {
                                 Some(text.to_string())
                             }
                             Response::Error(text) => panic!("Error case {:?}", text),
-                            _ => panic!("Response case _")
+                            smt => panic!("Questions case _: {:?}", smt)
                         }
                     }
                     Need::Answers => {
@@ -124,7 +124,7 @@ impl Dialogue {
                                 Some(text.to_string())
                             }
                             Response::Error(text) => panic!("Error case {:?}", text),
-                            _ => panic!("Response case _")
+                            smt => panic!("Answers case _: {:?}", smt)
                         }
                     }
                     Need::Resume => {
@@ -147,7 +147,7 @@ impl Dialogue {
                                 );
                                 Some(text.to_string())
                             }
-                            _ => panic!("Profession case _")
+                            smt => panic!("Resume case _: {:?}", smt)
                         }
                     }
                 };

@@ -1,4 +1,15 @@
 services:
+  server:
+    build:
+      context: .
+      target: final
+    env_file:
+      - .env
+    ports:
+      - 3000:3000
+    networks:
+      - db_network
+
   postgres:
     image: postgres
     restart: always
@@ -11,3 +22,11 @@ services:
       - POSTGRES_DB=portfolio
 #    ports:
 #      - "5436:5432"
+    networks:
+      - db_network
+
+
+networks:
+  db_network:
+    driver: bridge
+

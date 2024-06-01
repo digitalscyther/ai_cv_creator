@@ -1,3 +1,10 @@
+## .env file
+```text
+HOST=0.0.0.0
+DATABASE_URL=postgres://portfolio:example@postgres/portfolio
+OPENAI_API_KEY=foo
+```
+
 ## Prompt Errors
 - Answer
   - auto setting answers after getting questions
@@ -11,6 +18,8 @@
 - [x] rest api
   - [x] endpoints
   - [x] customization dialogue params
+  - [x] build docker
+  - [ ] move to separated dir
 - [ ] pdf generation
 - [ ] if first message will be too long (it's skip limit now)
 - [ ] interface
