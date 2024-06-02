@@ -117,7 +117,7 @@ async fn handle_invite_link(params: ConfigParameters, bot: Bot, msg: &Message, i
     let now = Utc::now();
 
     sqlx::query!("UPDATE users SET chat_id = $1, registered = $2 WHERE id = $3", chat_id.0, now, id)
-        .execute(&params.pool).await.unwrap();
+        .execute(&params.pool).await.unwrap();  // TODO fix unwrap without result stop app
 
     bot.send_message(chat_id, "You have successfully registered!").await.unwrap();
 
