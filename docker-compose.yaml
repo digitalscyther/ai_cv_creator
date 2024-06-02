@@ -1,10 +1,11 @@
 services:
-  server:
+  api:
     build:
-      context: .
+      context: api
       target: final
     env_file:
       - .env
+      - api/.env
     ports:
       - 3000:3000
     networks:

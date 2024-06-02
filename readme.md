@@ -19,7 +19,7 @@ OPENAI_API_KEY=foo
   - [x] endpoints
   - [x] customization dialogue params
   - [x] build docker
-  - [ ] move to separated dir
+  - [x] move to separated dir
 - [ ] pdf generation
 - [ ] if first message will be too long (it's skip limit now)
 - [ ] interface
