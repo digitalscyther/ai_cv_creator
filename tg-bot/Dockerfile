@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG RUST_VERSION=1.78.0
-ARG APP_NAME=telegram
+ARG APP_NAME=tg-bot
 
 FROM rust:${RUST_VERSION}-slim AS build
 ARG APP_NAME

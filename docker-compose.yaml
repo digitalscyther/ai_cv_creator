@@ -6,10 +6,11 @@ services:
     env_file:
       - .env
       - api/.env
-    ports:
-      - 3000:3000
+#    ports:
+#      - 3000:3000
     networks:
       - db_network
+      - api_network
 
   tg-bot:
     build:
@@ -18,10 +19,11 @@ services:
     env_file:
       - .env
       - tg-bot/.env
-    ports:
-      - 3001:3001
+#    ports:
+#      - 3001:3001
     networks:
       - db_network
+      - api_network
 
   postgres:
     image: postgres
@@ -33,13 +35,15 @@ services:
       - POSTGRES_PASSWORD=example
       - POSTGRES_USER=portfolio
       - POSTGRES_DB=portfolio
-    ports:
-      - "5436:5432"
+#    ports:
+#      - "5436:5432"
     networks:
       - db_network
 
 
 networks:
   db_network:
+    driver: bridge
+  api_network:
     driver: bridge
 
