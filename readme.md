@@ -24,7 +24,7 @@ OPENAI_API_KEY=foo
 - [ ] if first message will be too long (it's skip limit now)
 - [ ] interface
   - [ ] discord
-  - [ ] telegram
+  - [x] telegram
   - [ ] web
 - [ ] real expectations
 - [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)

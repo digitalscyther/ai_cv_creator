@@ -1,0 +1,9 @@
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR NOT NULL UNIQUE,
+    creator BIGINT NOT NULL,
+    api_user_id INT NOT NULL,
+    created TIMESTAMP WITH TIME ZONE NOT NULL,
+    chat_id BIGINT UNIQUE,
+    registered TIMESTAMP WITH TIME ZONE
+);

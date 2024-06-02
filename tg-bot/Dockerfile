@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG RUST_VERSION=1.78.0
-ARG APP_NAME=api
+ARG APP_NAME=telegram
 
 FROM rust:${RUST_VERSION}-slim AS build
 ARG APP_NAME
@@ -40,8 +40,7 @@ RUN adduser \
 USER appuser
 
 COPY --from=build /bin/server /bin/
-COPY src/data src/data
 
-EXPOSE 3000
+EXPOSE 3001
 
 CMD ["/bin/server"]
