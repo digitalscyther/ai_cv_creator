@@ -142,10 +142,13 @@ async fn handle_command(
         Command::ShowMyInfo => {
             match get_user_id(&params.pool, msg.chat.id.0).await.expect("foo") {
                 Some(user_id) => {
-                    let user_info = get_user_info(&params.client, user_id).await;
+                    let mut user_info = get_user_info(&params.client, user_id).await.unwrap();
+                    if let Some(obj) = user_info.as_object_mut() {
+                        obj.remove("messages");
+                    }
                     bot.send_message(
                         msg.chat.id,
-                        serde_json::to_string(&user_info.unwrap()).unwrap()
+                        serde_json::to_string(&user_info).unwrap()
                     ).await.expect("foo");
                 },
                 None => {

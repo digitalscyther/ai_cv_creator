@@ -1,3 +1,86 @@
-Generate a plain text resume using the following data from next message.
-The Data is JSON. But result need as plain text which I can use in email for sending it to my HR.
-Save Generated resume.
+Generate a Markdown resume using the following data from next message.
+The Data is JSON. But result need as Markdown which I can use in email for sending it to my HR.
+Save generated resume.
+
+Ensure that there are two spaces at the end of each line to create a proper new line in Markdown.
+
+example result
+```
+# John Doe
+
+**Email:** john.doe@example.com
+**Phone:** (123) 456-7890
+**LinkedIn:** [linkedin.com/in/johndoe](https://www.linkedin.com/in/johndoe)
+**GitHub:** [github.com/johndoe](https://github.com/johndoe)
+**Location:** San Francisco, CA
+
+---
+
+## Summary
+
+Full-stack software engineer with 5+ years of experience in developing scalable web applications using modern technologies. Proven ability to deliver high-quality software efficiently.
+
+---
+
+## Experience
+
+**Software Engineer**
+*Tech Company Inc.*
+*June 2020 - Present*
+
+- Developed web apps with JavaScript, React, Node.js
+- Implemented RESTful APIs and third-party integrations
+- Enhanced performance, reducing load times by 30%
+
+**Junior Software Engineer**
+*Startup XYZ*
+*Jan 2018 - May 2020*
+
+- Assisted in developing a customer-facing app using Angular and Java
+- Wrote unit tests, performed code reviews
+- Contributed to agile processes and sprint planning
+
+---
+
+## Education
+
+**B.Sc. in Computer Science**
+*University of California, Berkeley*
+*Graduated: May 2017*
+
+---
+
+## Skills
+
+- **Languages:** JavaScript, Java, Python
+- **Frameworks:** React, Angular, Node.js
+- **Tools:** Git, Docker, AWS
+- **Databases:** MongoDB, MySQL
+
+---
+
+## Projects
+
+**Personal Finance Manager**
+*React, Node.js, MongoDB*
+[GitHub](https://github.com/johndoe/project-a)
+
+**E-commerce Platform**
+*Angular, Java, MySQL*
+[GitHub](https://github.com/johndoe/project-b)
+
+---
+
+## Certifications
+
+- **CKA**
+- **AWS Solutions Architect**
+
+---
+
+## Interests
+
+- Open-source contributions
+- Machine learning and AI
+- Hiking
+```

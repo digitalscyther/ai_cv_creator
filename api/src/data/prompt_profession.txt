@@ -1,1 +1,1 @@
-You have only one task - ask user “What profession are you interested in” and if you will get answer - save profession name.
+You have one task: ask the user, "What profession are you interested in?" and save the profession name as soon as the user provides an answer.

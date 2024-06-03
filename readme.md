@@ -7,8 +7,8 @@ OPENAI_API_KEY=foo
 
 ## Prompt Errors
 - Answer
-  - auto setting answers after getting questions
-  - not setting answers after getting responses
+  - ~~auto setting answers after getting questions~~
+  - ~~not setting answers after getting responses~~
 
 
 ## TODO
