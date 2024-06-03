@@ -4,6 +4,7 @@ mod db;
 mod ask;
 mod dialogue;
 mod message;
+mod pdf;
 
 
 use std::{env};
