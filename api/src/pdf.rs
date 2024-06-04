@@ -1,10 +1,11 @@
-use std::fs;
+use std::{env, fs};
 use std::io::{Error, Write};
 use tempfile::NamedTempFile;
 use tokio::process::Command;
 
-pub async fn generate_pdf(text: &str, output: &str, program: &str) -> Result<(), Error> {
-    let output_temp = NamedTempFile::new().unwrap();
+pub async fn generate_pdf(text: &str, output_temp: &NamedTempFile) -> Result<(), Error> {
+    let program = env::var("MDPROOF_FP").expect("MDPROOF_FP must be set");
+
     let mut input_temp = NamedTempFile::new().unwrap();
     input_temp.write_all(text.as_bytes()).unwrap();
 
@@ -17,10 +18,7 @@ pub async fn generate_pdf(text: &str, output: &str, program: &str) -> Result<(),
     let child = command.spawn()?;
     let _ = child.wait_with_output().await?;
 
-    fs::copy(&output_temp_filepath, output).unwrap();
-
     fs::remove_file(&input_temp_filepath).unwrap();
-    fs::remove_file(&output_temp_filepath).unwrap();
 
     Ok(())
 }

@@ -5,6 +5,7 @@ mod ask;
 mod dialogue;
 mod message;
 mod pdf;
+mod storage;
 
 
 use std::{env};
@@ -16,19 +17,26 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
+use derivative::Derivative;
+use minio::s3::client::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
+use tempfile::NamedTempFile;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tracing::{info};
+use uuid::Uuid;
 use crate::ask::Asker;
 use crate::db::create_pool;
 use crate::dialogue::Dialogue;
+use crate::storage::{create_client, save};
 
 
-async fn get_answer(pool: &Pool<Postgres>, user: user::User, message: UserMessage) -> Result<String, &'static str> {
+async fn get_answer(app_state: AppState, user: user::User, message: UserMessage) -> Result<String, &'static str> {
     let default_api_key = env::var("OPENAI_API_KEY").expect("foo");
+    let bucket_name = env::var("MINIO_BUCKET_NAME").expect("MINIO_BUCKET_NAME must be set");
+
     let default_max_tokens = Some(300);
     let a = match message.open_ai {
         Some(open_ai) => Asker::new(
@@ -47,18 +55,35 @@ async fn get_answer(pool: &Pool<Postgres>, user: user::User, message: UserMessag
 
     let mut dialogue = Dialogue::new(user, a, message.max_history, message.max_tokens);
 
-    let mut response = dialogue.process_message(Some(message.text.trim())).await;
+    let (mut response, mut set_resume) = dialogue.process_message(Some(message.text.trim())).await;
 
     while response.is_none() {
-        response = dialogue.process_message(match response {
+        (response, set_resume) = dialogue.process_message(match response {
             Some(ref t) => Some(&t),
             _ => None
         }).await;
     }
 
-    dialogue.save_user(pool).await;
+    if set_resume {
+        let resume_temp = NamedTempFile::new().unwrap();
+        pdf::generate_pdf(&response.clone().unwrap(), &resume_temp).await.expect("Failed generate pdf");
+
+        let resume_temp_filepath = resume_temp.path().to_str().unwrap().to_string();
+        let resume_name = format!("{}.pdf", Uuid::new_v4().to_string());
+        save(&app_state.minio_client, &bucket_name, &resume_temp_filepath, &resume_name).await.expect("failed save_minio");
+        dialogue.set_resume(&resume_name).await.expect("Failed set resume for user");
+    }
+
+    dialogue.save_user(&app_state.pool).await;
 
     Ok(response.unwrap())
+}
+
+#[derive(Derivative, Debug)]
+#[derivative(Clone)]
+struct AppState {
+    pool: Pool<Postgres>,
+    minio_client: Client,
 }
 
 #[tokio::main]
@@ -70,11 +95,15 @@ async fn main() -> Result<(), OpenAIError> {
 
     info!("Started...");
 
+    let minio_client = create_client().await.expect("Failed create minio client");
+
     let pool = create_pool().await;
 
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await.expect("failed migrations");
+
+    let app_state = AppState { pool, minio_client };
 
     let app = Router::new()
         .route("/users", post(user_create))
@@ -96,7 +125,7 @@ async fn main() -> Result<(), OpenAIError> {
                 .layer(TraceLayer::new_for_http())
                 .into_inner(),
         )
-        .with_state(pool);
+        .with_state(app_state);
 
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -110,8 +139,8 @@ async fn main() -> Result<(), OpenAIError> {
     Ok(())
 }
 
-async fn user_create(State(pool): State<Pool<Postgres>>) -> impl IntoResponse {
-    let u = user::User::create_user(&pool).await.expect("todo");
+async fn user_create(State(app_state): State<AppState>) -> impl IntoResponse {
+    let u = user::User::create_user(&app_state.pool).await.expect("todo");
 
     let user = User { id: u.id };
 
@@ -123,8 +152,8 @@ struct User {
     id: u64,
 }
 
-async fn user_get(Path(id): Path<i32>, State(pool): State<Pool<Postgres>>) -> impl IntoResponse {
-    let u = user::User::get_user(&pool, id).await;
+async fn user_get(Path(id): Path<i32>, State(app_state): State<AppState>) -> impl IntoResponse {
+    let u = user::User::get_user(&app_state.pool, id).await;
 
     match u {
         Ok(Some(u)) => Ok(Json(u)),
@@ -147,9 +176,9 @@ struct UserMessage {
     max_tokens: Option<u32>,
 }
 
-async fn user_message(Path(id): Path<i32>, State(pool): State<Pool<Postgres>>, Json(message): Json<UserMessage>) -> impl IntoResponse {
-    if let Ok(Some(u)) = user::User::get_user(&pool, id).await {
-        if let Ok(answer) = get_answer(&pool, u, message).await {
+async fn user_message(Path(id): Path<i32>, State(app_state): State<AppState>, Json(message): Json<UserMessage>) -> impl IntoResponse {
+    if let Ok(Some(u)) = user::User::get_user(&app_state.pool, id).await {
+        if let Ok(answer) = get_answer(app_state, u, message).await {
             return Ok(Json(answer));
         }
     }

@@ -5,12 +5,17 @@ ARG APP_NAME=api
 
 FROM rust:${RUST_VERSION}-slim AS build
 ARG APP_NAME
-WORKDIR /app
 
 RUN apt-get update && \
-    apt-get install -y clang lld musl-tools pkg-config libssl-dev && \
+    apt-get install -y git clang lld musl-tools pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
+WORKDIR /mdproof
+RUN git clone https://github.com/Geemili/mdproof /mdproof && \
+    cargo build --locked --release && \
+    cp ./target/release/mdproof /bin/mdproof
+
+WORKDIR /app
 RUN --mount=type=bind,source=src,target=src \
     --mount=type=bind,source=migrations,target=migrations \
     --mount=type=bind,source=.sqlx,target=.sqlx \
@@ -19,8 +24,8 @@ RUN --mount=type=bind,source=src,target=src \
     --mount=type=cache,target=/app/target/ \
     --mount=type=cache,target=/usr/local/cargo/git/db \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
-cargo build --locked --release && \
-cp ./target/release/$APP_NAME /bin/server
+    cargo build --locked --release && \
+    cp ./target/release/$APP_NAME /bin/server
 
 FROM debian:bookworm-slim AS final
 
@@ -39,6 +44,7 @@ RUN adduser \
     appuser
 USER appuser
 
+COPY --from=build /bin/mdproof /bin/
 COPY --from=build /bin/server /bin/
 COPY src/data src/data
 
