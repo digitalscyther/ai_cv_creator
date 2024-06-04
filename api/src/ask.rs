@@ -256,18 +256,19 @@ impl Asker {
         return self.get_string(
             messages,
             vec![
-                ("save_resume", "Save the resume", json!({
+                ("save_resume", "Save the CV Markdown summary", json!({
                 "type": "object",
                 "properties": {
-                    "resume": {
-                        "type": "string"
+                    "cv_text": {
+                        "type": "string",
+                        "description": "the Markdown text of CV"
                     },
                 },
-                "required": ["resume"],
+                "required": ["cv_text"],
             }))
             ],
             "./src/data/prompt_resume.txt",
-            "resume",
+            "cv_text",
             Response::Resume,
         ).await;
     }
