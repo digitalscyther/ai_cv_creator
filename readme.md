@@ -44,5 +44,6 @@ API_URL=http://api:3000
   - [x] telegram
   - [ ] ~~discord~~
   - [ ] ~~web~~
+- [ ] stream file instead cache
 - [ ] real expectations
 - [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)

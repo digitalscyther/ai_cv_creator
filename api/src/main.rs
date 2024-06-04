@@ -15,7 +15,7 @@ use aws_sdk_s3::Client;
 use axum::error_handling::HandleErrorLayer;
 use axum::{BoxError, Json, Router};
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{header, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use derivative::Derivative;
@@ -30,12 +30,22 @@ use uuid::Uuid;
 use crate::ask::Asker;
 use crate::db::create_pool;
 use crate::dialogue::{Dialogue, Instruction};
-use crate::storage::{create_client, delete, save};
+use crate::storage::{create_client, delete, load, save};
 
 
-async fn get_answer(app_state: AppState, user: user::User, message: UserMessage) -> Result<String, &'static str> {
+enum Answer {
+    Message(String),
+    Generated,
+}
+
+fn get_bucket_name() -> String {
+    env::var("MINIO_BUCKET_NAME").expect("MINIO_BUCKET_NAME must be set")
+}
+
+
+async fn get_answer(app_state: AppState, user: user::User, message: UserMessage) -> Result<Answer, &'static str> {
     let default_api_key = env::var("OPENAI_API_KEY").expect("foo");
-    let bucket_name = env::var("MINIO_BUCKET_NAME").expect("MINIO_BUCKET_NAME must be set");
+    let bucket_name = get_bucket_name();
 
     let default_max_tokens = Some(1000);
     let a = match message.open_ai {
@@ -64,7 +74,6 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
         }).await;
     }
 
-
     match instruction {
         Instruction::SaveResume => {
             let resume_temp = NamedTempFile::new().unwrap();
@@ -74,6 +83,7 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
             let resume_name = format!("{}.pdf", Uuid::new_v4().to_string());
             save(&app_state.s3_client, &bucket_name, &resume_temp_filepath, &resume_name).await.expect("failed save_s3");
             dialogue.set_resume(&resume_name).await.expect("Failed set resume for user");
+            return Ok(Answer::Generated)
         }
         Instruction::DeleteResume(name) => {
             delete(&app_state.s3_client, &bucket_name, &name).await.expect("failed delete_s3");
@@ -83,7 +93,7 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
 
     dialogue.save_user(&app_state.pool).await;
 
-    Ok(response.unwrap())
+    Ok(Answer::Message(response.unwrap()))
 }
 
 #[derive(Derivative, Debug)]
@@ -116,6 +126,7 @@ async fn main() -> Result<(), OpenAIError> {
         .route("/users", post(user_create))
         .route("/users/:id", get(user_get))
         .route("/users/:id/message", post(user_message))
+        .route("/users/:id/cv", get(user_cv))
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|error: BoxError| async move {
@@ -185,10 +196,31 @@ struct UserMessage {
 
 async fn user_message(Path(id): Path<i32>, State(app_state): State<AppState>, Json(message): Json<UserMessage>) -> impl IntoResponse {
     if let Ok(Some(u)) = user::User::get_user(&app_state.pool, id).await {
-        if let Ok(answer) = get_answer(app_state, u, message).await {
-            return Ok(Json(answer));
+        return match get_answer(app_state, u, message).await {
+            Ok(Answer::Message(text)) => Ok(Json(text)),
+            Ok(Answer::Generated) => Ok(Json("generated".to_string())),
+            _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
         }
     }
+    Err(StatusCode::NOT_FOUND)
+}
 
-    Err(StatusCode::INTERNAL_SERVER_ERROR)
+async fn user_cv(Path(id): Path<i32>, State(app_state): State<AppState>) -> impl IntoResponse {
+    if let Ok(Some(u)) = user::User::get_user(&app_state.pool, id).await {
+        return match u.get_resume() {
+            Some(name) => {
+                let bucket_name = get_bucket_name();
+                let bytes = load(&app_state.s3_client, &bucket_name, &name).await.expect("Failed s3_load");
+
+                let headers = [
+                    (header::CONTENT_TYPE, "application/pdf; charset=utf-8"),
+                    (header::CONTENT_DISPOSITION, "attachment; filename=\"cv.pdf\""),
+                ];
+
+                Ok((headers, bytes))
+            },
+            None => Err(StatusCode::BAD_REQUEST)
+        }
+    }
+    Err(StatusCode::NOT_FOUND)
 }

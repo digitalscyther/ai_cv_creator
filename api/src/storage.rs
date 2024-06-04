@@ -1,12 +1,11 @@
 use std::env;
-use std::io::Write;
 use std::path::Path;
 use aws_sdk_s3 as s3;
 use aws_sdk_s3::config::{Credentials, Region};
 use aws_sdk_s3::config::endpoint::{Endpoint, EndpointFuture, Params, ResolveEndpoint};
 use aws_sdk_s3::primitives::ByteStream;
+use axum::body::Bytes;
 use s3::Client;
-use tempfile::NamedTempFile;
 
 #[derive(Debug)]
 struct S3EndpointResolver {
@@ -58,7 +57,7 @@ pub async fn save(client: &Client, bucket_name: &str, src_fp: &str, dst_name: &s
 }
 
 #[allow(dead_code)]
-pub async fn load(client: &Client, bucket_name: &str, dst: &mut NamedTempFile, src_name: &str) -> Result<(), &'static str> {
+pub async fn load(client: &Client, bucket_name: &str, src_name: &str) -> Result<Bytes, &'static str> {
     let obj = client
             .get_object()
             .bucket(bucket_name.to_string())
@@ -66,9 +65,7 @@ pub async fn load(client: &Client, bucket_name: &str, dst: &mut NamedTempFile, s
             .send()
             .await.expect("foo");
 
-    dst.write_all(&*obj.body.collect().await.expect("foo").into_bytes()).unwrap();
-
-    Ok(())
+    Ok(obj.body.collect().await.expect("foo").into_bytes())
 }
 
 #[allow(dead_code)]
