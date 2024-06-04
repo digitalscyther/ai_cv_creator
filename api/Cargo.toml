@@ -16,5 +16,6 @@ axum = "0.7.5"
 tower = { version = "0.4.13", features = ["timeout"] }
 tower-http = {  version = "0.5.2", features = ["add-extension", "trace"] }
 tempfile = "3.10.1"
-minio = { version = "0.1.0" }
 uuid = { version = "1.8.0", features = ["v4"] }
+aws-sdk-s3 = "1.33.0"
+aws-config = { version = "1.5.1", features = ["behavior-version-latest"] }

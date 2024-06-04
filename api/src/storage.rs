@@ -1,80 +1,83 @@
 use std::env;
-use minio::s3::args::{BucketExistsArgs, DownloadObjectArgs, MakeBucketArgs, RemoveObjectArgs, UploadObjectArgs};
-use minio::s3::client::{Client, ClientBuilder};
-use minio::s3::creds::StaticProvider;
-use minio::s3::http::BaseUrl;
+use std::io::Write;
+use std::path::Path;
+use aws_sdk_s3 as s3;
+use aws_sdk_s3::config::{Credentials, Region};
+use aws_sdk_s3::config::endpoint::{Endpoint, EndpointFuture, Params, ResolveEndpoint};
+use aws_sdk_s3::primitives::ByteStream;
+use s3::Client;
+use tempfile::NamedTempFile;
+
+#[derive(Debug)]
+struct S3EndpointResolver {
+    url: String,
+}
+impl ResolveEndpoint for S3EndpointResolver {
+    fn resolve_endpoint(&self, params: &Params) -> EndpointFuture<'_> {
+        let full_url = format!("{}/{}", self.url, params.bucket().unwrap_or(""));
+        EndpointFuture::ready(Ok(Endpoint::builder().url(full_url).build()))
+    }
+}
 
 pub async fn create_client() -> Result<Client, &'static str> {
     let access_key = env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY must be set");
     let secret_key = env::var("MINIO_SECRET_KEY").expect("MINIO_SECRET_KEY must be set");
     let base_url = env::var("MINIO_URL").expect("MINIO_URL must be set");
 
-    let base_url = base_url.parse::<BaseUrl>().expect("failed build minio base_url");
-
-    let static_provider = StaticProvider::new(
-        &access_key,
-        &secret_key,
+    let profile_creds = Credentials::new(
+        access_key,
+        secret_key,
         None,
+        None,
+        "Static",
     );
+    let conf = s3::Config::builder()
+        .behavior_version_latest()
+        .region(Region::new("us-east-1"))
+        .endpoint_resolver(S3EndpointResolver {
+            url: base_url,
+        })
+        .credentials_provider(profile_creds)
+        .build();
 
-    Ok(ClientBuilder::new(base_url.clone())
-        .provider(Some(Box::new(static_provider)))
-        .build().expect("Failed get minio client"))
+    let aws_s3_client = Client::from_conf(conf);
+
+    Ok(aws_s3_client)
 }
 
 pub async fn save(client: &Client, bucket_name: &str, src_fp: &str, dst_name: &str) -> Result<(), &'static str> {
-    create_bucket_if_not_exists(client, bucket_name).await.expect("foo");
-
-    let upload_obj_args: UploadObjectArgs = UploadObjectArgs::new(
-        bucket_name,
-        dst_name,
-        src_fp
-    ).unwrap();
-
-    client.upload_object(&upload_obj_args).await.expect("Failed save minio");
+    client
+            .put_object()
+            .bucket(bucket_name.to_string())
+            .key(dst_name)
+            .body(ByteStream::from_path(Path::new(src_fp)).await.expect("foo"))
+            .send()
+            .await.expect("foo");
 
     Ok(())
 }
 
-pub async fn load(client: &Client, bucket_name: &str, dst_fp: &str, src_name: &str) -> Result<(), &'static str> {
-    create_bucket_if_not_exists(client, bucket_name).await?;
+#[allow(dead_code)]
+pub async fn load(client: &Client, bucket_name: &str, dst: &mut NamedTempFile, src_name: &str) -> Result<(), &'static str> {
+    let obj = client
+            .get_object()
+            .bucket(bucket_name.to_string())
+            .key(src_name)
+            .send()
+            .await.expect("foo");
 
-    let download_obj_args: DownloadObjectArgs = DownloadObjectArgs::new(
-        bucket_name,
-        src_name,
-        dst_fp
-    ).unwrap();
-
-    client.download_object(&download_obj_args).await.expect("Failed load minio");
+    dst.write_all(&*obj.body.collect().await.expect("foo").into_bytes()).unwrap();
 
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn delete(client: &Client, bucket_name: &str, name: &str) -> Result<(), &'static str> {
-    create_bucket_if_not_exists(client, bucket_name).await?;
-
-    let remove_obj_args: RemoveObjectArgs = RemoveObjectArgs::new(
-        bucket_name,
-        name,
-    ).unwrap();
-
-    client.remove_object(&remove_obj_args).await.expect("Failed delete minio");
-
-    Ok(())
-}
-
-async fn create_bucket_if_not_exists(client: &Client, bucket_name: &str) -> Result<(), &'static str> {
-    let exists: bool = client
-        .bucket_exists(&BucketExistsArgs::new(&bucket_name).unwrap())
-        .await
-        .unwrap();
-
-    if !exists {
-        client
-            .make_bucket(&MakeBucketArgs::new(&bucket_name).unwrap())
-            .await
-            .unwrap();
-    }
-
+    client
+            .delete_object()
+            .bucket(bucket_name.to_string())
+            .key(name)
+            .send()
+            .await.expect("foo");
     Ok(())
 }

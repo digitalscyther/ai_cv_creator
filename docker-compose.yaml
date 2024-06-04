@@ -6,8 +6,8 @@ services:
     env_file:
       - .env
       - api/.env
-#    ports:
-#      - 3000:3000
+    ports:
+      - 3000:3000
     networks:
       - db_network
       - api_network
@@ -20,8 +20,6 @@ services:
     env_file:
       - .env
       - tg-bot/.env
-#    ports:
-#      - 3001:3001
     networks:
       - db_network
       - api_network

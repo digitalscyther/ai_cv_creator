@@ -96,7 +96,7 @@ impl Asker {
                             tool_call.function.name.clone(),
                             Some(to_request(response_message)),
                         ),
-                        arguments[result_field_name].to_string(),
+                        serde_json::from_value(arguments[result_field_name].clone()).unwrap(),
                     );
                 };
                 return Response::Error("Exception #4699740191".to_string());

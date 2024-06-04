@@ -11,6 +11,7 @@ mod storage;
 use std::{env};
 use std::time::Duration;
 use async_openai::error::OpenAIError;
+use aws_sdk_s3::Client;
 use axum::error_handling::HandleErrorLayer;
 use axum::{BoxError, Json, Router};
 use axum::extract::{Path, State};
@@ -18,7 +19,6 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use derivative::Derivative;
-use minio::s3::client::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tempfile::NamedTempFile;
@@ -37,7 +37,7 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
     let default_api_key = env::var("OPENAI_API_KEY").expect("foo");
     let bucket_name = env::var("MINIO_BUCKET_NAME").expect("MINIO_BUCKET_NAME must be set");
 
-    let default_max_tokens = Some(300);
+    let default_max_tokens = Some(1000);
     let a = match message.open_ai {
         Some(open_ai) => Asker::new(
             open_ai.api_key.unwrap_or(default_api_key),
@@ -70,7 +70,7 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
 
         let resume_temp_filepath = resume_temp.path().to_str().unwrap().to_string();
         let resume_name = format!("{}.pdf", Uuid::new_v4().to_string());
-        save(&app_state.minio_client, &bucket_name, &resume_temp_filepath, &resume_name).await.expect("failed save_minio");
+        save(&app_state.s3_client, &bucket_name, &resume_temp_filepath, &resume_name).await.expect("failed save_s3");
         dialogue.set_resume(&resume_name).await.expect("Failed set resume for user");
     }
 
@@ -83,7 +83,7 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
 #[derivative(Clone)]
 struct AppState {
     pool: Pool<Postgres>,
-    minio_client: Client,
+    s3_client: Client,
 }
 
 #[tokio::main]
@@ -95,7 +95,7 @@ async fn main() -> Result<(), OpenAIError> {
 
     info!("Started...");
 
-    let minio_client = create_client().await.expect("Failed create minio client");
+    let s3_client = create_client().await.expect("Failed create s3 client");
 
     let pool = create_pool().await;
 
@@ -103,7 +103,7 @@ async fn main() -> Result<(), OpenAIError> {
         .run(&pool)
         .await.expect("failed migrations");
 
-    let app_state = AppState { pool, minio_client };
+    let app_state = AppState { pool, s3_client };
 
     let app = Router::new()
         .route("/users", post(user_create))
