@@ -36,6 +36,7 @@ API_URL=http://api:3000
   - [x] move to separated dir
 - [ ] pdf generation
   - [x] s3 work
+  - [x] reset with delete saved
   - [ ] send to telegram
   - [ ] normal format (prompt)
 - [ ] if first message will be too long (it's skip limit now)

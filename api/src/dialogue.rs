@@ -13,6 +13,12 @@ pub struct Dialogue {
     max_tokens: u32,
 }
 
+pub enum Instruction {
+    SaveResume,
+    DeleteResume(String),
+    None,
+}
+
 impl Dialogue {
     pub fn new(user: User, asker: Asker, max_history: Option<usize>, max_tokens: Option<u32>) -> Self {
         let max_history = max_history.unwrap_or(MAX_HISTORY);
@@ -25,11 +31,15 @@ impl Dialogue {
         Ok(())
     }
 
-    pub async fn process_message(&mut self, text: Option<&str>) -> (Option<String>, bool) {
+    pub async fn process_message(&mut self, text: Option<&str>) -> (Option<String>, Instruction) {
         if let Some(text) = text {
             if text == "reset" {
+                let instruction = match self.user.get_resume() {
+                    Some(name) => Instruction::DeleteResume(name),
+                    None => Instruction::None
+                };
                 self.user.reset();
-                return (Some("Data reset".to_string()), false)
+                return (Some("Data reset".to_string()), instruction)
             }
 
             self.user.add_message(
@@ -48,11 +58,11 @@ impl Dialogue {
                 (match text {
                     Some(text) if text == "resume" => self.user.get_resume(),
                     _ => Some("the end".to_string())
-                }, false)
+                }, Instruction::None)
             }
             others => {
                 if self.user.not_enough_tokens(self.max_tokens) {
-                    return (Some("Limit exceed".to_string()), false);
+                    return (Some("Limit exceed".to_string()), Instruction::None);
                 }
 
                 return match others {
@@ -78,7 +88,7 @@ impl Dialogue {
                                 Some(text.to_string())
                             }
                             smt => panic!("Profession case _: {:?}", smt)
-                        }, false)
+                        }, Instruction::None)
                     }
                     Need::Questions => {
                         let payable_response = self.asker.get_questions(messages).await;
@@ -102,7 +112,7 @@ impl Dialogue {
                             }
                             Response::Error(text) => panic!("Error case {:?}", text),
                             smt => panic!("Questions case _: {:?}", smt)
-                        }, false)
+                        }, Instruction::None)
                     }
                     Need::Answers => {
                         let payable_response = self.asker.get_answers(self.answer_with_messages(messages)).await;
@@ -130,7 +140,7 @@ impl Dialogue {
                             }
                             Response::Error(text) => panic!("Error case {:?}", text),
                             smt => panic!("Answers case _: {:?}", smt)
-                        }, false)
+                        }, Instruction::None)
                     }
                     Need::Resume => {
                         let payable_response = self.asker.get_resume(self.answer_with_messages(messages)).await;
@@ -139,7 +149,7 @@ impl Dialogue {
                             Response::Resume(tool_call, resume) => {
                                 self.user.add_message(tool_call.request_message.unwrap());
                                 self.user.add_func_success(&tool_call.call_id, &tool_call.function_name);
-                                (Some(resume), true)
+                                (Some(resume), Instruction::SaveResume)
                             }
                             Response::Text(text) => {
                                 self.user.add_message(
@@ -149,7 +159,7 @@ impl Dialogue {
                                             .build().unwrap()
                                     )
                                 );
-                                (Some(text.to_string()), false)
+                                (Some(text.to_string()), Instruction::None)
                             }
                             smt => panic!("Resume case _: {:?}", smt)
                         }

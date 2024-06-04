@@ -29,8 +29,8 @@ use tracing::{info};
 use uuid::Uuid;
 use crate::ask::Asker;
 use crate::db::create_pool;
-use crate::dialogue::Dialogue;
-use crate::storage::{create_client, save};
+use crate::dialogue::{Dialogue, Instruction};
+use crate::storage::{create_client, delete, save};
 
 
 async fn get_answer(app_state: AppState, user: user::User, message: UserMessage) -> Result<String, &'static str> {
@@ -55,23 +55,30 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
 
     let mut dialogue = Dialogue::new(user, a, message.max_history, message.max_tokens);
 
-    let (mut response, mut set_resume) = dialogue.process_message(Some(message.text.trim())).await;
+    let (mut response, mut instruction) = dialogue.process_message(Some(message.text.trim())).await;
 
     while response.is_none() {
-        (response, set_resume) = dialogue.process_message(match response {
+        (response, instruction) = dialogue.process_message(match response {
             Some(ref t) => Some(&t),
             _ => None
         }).await;
     }
 
-    if set_resume {
-        let resume_temp = NamedTempFile::new().unwrap();
-        pdf::generate_pdf(&response.clone().unwrap(), &resume_temp).await.expect("Failed generate pdf");
 
-        let resume_temp_filepath = resume_temp.path().to_str().unwrap().to_string();
-        let resume_name = format!("{}.pdf", Uuid::new_v4().to_string());
-        save(&app_state.s3_client, &bucket_name, &resume_temp_filepath, &resume_name).await.expect("failed save_s3");
-        dialogue.set_resume(&resume_name).await.expect("Failed set resume for user");
+    match instruction {
+        Instruction::SaveResume => {
+            let resume_temp = NamedTempFile::new().unwrap();
+            pdf::generate_pdf(&response.clone().unwrap(), &resume_temp).await.expect("Failed generate pdf");
+
+            let resume_temp_filepath = resume_temp.path().to_str().unwrap().to_string();
+            let resume_name = format!("{}.pdf", Uuid::new_v4().to_string());
+            save(&app_state.s3_client, &bucket_name, &resume_temp_filepath, &resume_name).await.expect("failed save_s3");
+            dialogue.set_resume(&resume_name).await.expect("Failed set resume for user");
+        }
+        Instruction::DeleteResume(name) => {
+            delete(&app_state.s3_client, &bucket_name, &name).await.expect("failed delete_s3");
+        }
+        Instruction::None => { }
     }
 
     dialogue.save_user(&app_state.pool).await;
