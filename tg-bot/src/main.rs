@@ -1,13 +1,16 @@
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value};
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use std::env;
+use std::io::Write;
 use teloxide::{prelude::*};
 use teloxide::utils::command::BotCommands;
 use chrono::{Utc, DateTime};
+use teloxide::types::InputFile;
+use tempfile::NamedTempFile;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-use tracing::{info};
+use tracing::{error, info};
 use uuid::Uuid;
 
 
@@ -40,6 +43,7 @@ enum Command {
     ShowMyInfo,
     #[command(description = "generate an invite link.")]
     GenerateInvite,
+    CV,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -59,6 +63,26 @@ async fn get_user_info(client: &Client, user_id: i32) -> Result<Value, reqwest::
     let response = client.get(format!("{api_url}/users/{}", user_id)).send().await?;
     let data: Value = response.json().await?;
     Ok(data)
+}
+
+async fn get_user_resume(client: &Client, user_id: i32, file: &mut NamedTempFile) -> Result<bool, reqwest::Error> {
+    let api_url = get_api_url();
+    let response = client.get(format!("{api_url}/users/{}/cv", user_id)).send().await?;
+    let status_code = response.status();
+
+    if status_code == StatusCode::NOT_FOUND {
+        return Ok(false)
+    }
+
+    if !status_code.is_success() {
+        error!("Failed to download file: {}", response.status());
+        return Ok(false);
+    }
+
+    let content = response.bytes().await.expect("Failed get resume as content");
+    file.write_all(&content).unwrap();
+
+    Ok(true)
 }
 
 async fn send_message(client: &Client, user_id: i32, text: &str) -> Result<String, reqwest::Error> {
@@ -176,6 +200,40 @@ async fn handle_command(
             let bot_name = env::var("BOT_NAME").expect("BOT_NAME must be set");
             let invite_link = format!("https://t.me/{bot_name}?start={}", invite_code);
             bot.send_message(msg.chat.id, format!("Your invite link: {}", invite_link)).await.expect("foo");
+        }
+        Command::CV => {
+            match get_user_id(&params.pool, msg.chat.id.0).await.expect("foo") {
+                Some(user_id) => {
+                    let mut temp_file = NamedTempFile::new().unwrap();
+                    match get_user_resume(&params.client, user_id, &mut temp_file).await {
+                        Ok(true) => {
+                            bot.send_document(
+                                msg.chat.id,
+                                InputFile::file(temp_file.path()).file_name("cv.pdf")
+                            ).await.unwrap();
+                        },
+                        Ok(false) => {
+                            bot.send_message(
+                                msg.chat.id,
+                                "cv not found"
+                            ).await.unwrap();
+                        },
+                        Err(e) => {
+                            error!("get_user_cv error:\n{e:?}");
+                            bot.send_message(
+                                msg.chat.id,
+                                "cv not found error"
+                            ).await.unwrap();
+                        }
+                    }
+                },
+                None => {
+                    bot.send_message(
+                        msg.chat.id,
+                        "You are not registered. Please contact with an admin to register."
+                    ).await.unwrap();
+                }
+            }
         }
     };
     Ok(())

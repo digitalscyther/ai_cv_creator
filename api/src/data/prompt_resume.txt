@@ -84,3 +84,5 @@ Full-stack software engineer with 5+ years of experience in developing scalable 
 - Machine learning and AI
 - Hiking
 ```
+
+Save it via function

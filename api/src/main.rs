@@ -83,6 +83,7 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
             let resume_name = format!("{}.pdf", Uuid::new_v4().to_string());
             save(&app_state.s3_client, &bucket_name, &resume_temp_filepath, &resume_name).await.expect("failed save_s3");
             dialogue.set_resume(&resume_name).await.expect("Failed set resume for user");
+            dialogue.save_user(&app_state.pool).await;
             return Ok(Answer::Generated)
         }
         Instruction::DeleteResume(name) => {

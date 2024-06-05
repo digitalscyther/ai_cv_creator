@@ -6,6 +6,8 @@ services:
     env_file:
       - .env
       - api/.env
+    environment:
+      DEFAULT_MODEL: "gpt-4o"
     ports:
       - 3000:3000
     networks:
