@@ -48,15 +48,17 @@ API_URL=http://api:3000
 - [x] interface
   - [x] telegram
     - [ ] hide admin commands
-    - [ ] telegram crash if bad api response
+    - [ ] telegram crash if bad api response (1)
+  - [ ] ~~discord~~
+  - [ ] ~~web~~
+- [ ] stream file instead cache
+- [ ] real expectations
+- [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)
+
+(1)
 ```text
 2024-06-06 01:30:13 thread 'tokio-runtime-worker' panicked at src/main.rs:124:67:
 2024-06-06 01:30:13 called `Result::unwrap()` on an `Err` value: reqwest::Error { kind: Request, url: Url { scheme: "http", cannot_be_a_base: false, username: "", password: None, host: Some(Domain("api")), port: Some(3000), path: "/users/5/message", query: None, fragment: None }, source: hyper_util::client::legacy::Error(SendRequest, hyper::Error(IncompleteMessage)) }
 2024-06-06 01:30:13 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 2024-06-06 01:32:38 thread 'main' panicked at /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/teloxide-0.12.2/src/dispatching/dispatcher.rs:410:43:
 ```
-  - [ ] ~~discord~~
-  - [ ] ~~web~~
-- [ ] stream file instead cache
-- [ ] real expectations
-- [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)
