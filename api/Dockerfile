@@ -3,17 +3,14 @@
 ARG RUST_VERSION=1.78.0
 ARG APP_NAME=api
 
+FROM surnet/alpine-wkhtmltopdf:3.20.0-0.12.6-small as wkhtmltopdf
+
 FROM rust:${RUST_VERSION}-slim AS build
 ARG APP_NAME
 
 RUN apt-get update && \
     apt-get install -y git clang lld musl-tools pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
-
-WORKDIR /mdproof
-RUN git clone https://github.com/Geemili/mdproof /mdproof && \
-    cargo build --locked --release && \
-    cp ./target/release/mdproof /bin/mdproof
 
 WORKDIR /app
 RUN --mount=type=bind,source=src,target=src \
@@ -44,7 +41,7 @@ RUN adduser \
     appuser
 USER appuser
 
-COPY --from=build /bin/mdproof /bin/
+COPY --from=wkhtmltopdf /bin/wkhtmltopdf /bin/
 COPY --from=build /bin/server /bin/
 COPY src/data src/data
 

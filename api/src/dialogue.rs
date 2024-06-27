@@ -143,7 +143,9 @@ impl Dialogue {
                         }, Instruction::None)
                     }
                     Need::Resume => {
-                        let payable_response = self.asker.get_resume(self.answer_with_messages(messages)).await;
+                        let payable_response = self.asker.clone_with_max_tokens(
+                            4_000   // TODO better
+                        ).get_resume(self.answer_with_messages(vec![])).await;
                         self.user.add_tokens_spent(payable_response.tokens_spent);
                         match payable_response.response {
                             Response::Resume(tool_call, resume) => {

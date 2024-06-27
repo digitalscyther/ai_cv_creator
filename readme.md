@@ -4,7 +4,7 @@ api:
 HOST=0.0.0.0
 DATABASE_URL=postgres://portfolio:example@postgres/portfolio
 OPENAI_API_KEY=foo
-MDPROOF_FP=/bin/mdproof
+PROGRAM_FP=/bin/wkhtmltopdf
 MINIO_URL=http://minio:9000
 MINIO_ACCESS_KEY=<access_key>
 MINIO_SECRET_KEY=<secret_key>
@@ -42,7 +42,7 @@ API_URL=http://api:3000
   - [x] reset with delete saved
   - [x] add to telegram
   - [ ] handle "generated" answer via tg
-  - [ ] save original markdown
+  - [ ] ~~save original markdown~~
   - [ ] normal format (prompt)
 - [ ] if first message will be too long (it's skip limit now)
 - [x] interface

@@ -39,6 +39,7 @@ impl ToolCallRequest {
     }
 }
 
+#[derive(Clone)]
 pub struct Asker {
     api_key: String,
     max_tokens: Option<u16>,
@@ -256,21 +257,28 @@ impl Asker {
         return self.get_string(
             messages,
             vec![
-                ("save_resume", "Save the CV Markdown summary", json!({
+                ("save_resume", "Save the CV HTML summary", json!({
                 "type": "object",
                 "properties": {
-                    "cv_text": {
+                    "cv_html": {
                         "type": "string",
-                        "description": "the Markdown text of CV"
+                        "description": "the HTML of CV"
                     },
                 },
-                "required": ["cv_text"],
+                "required": ["cv_html"],
             }))
             ],
             "./src/data/prompt_resume.txt",
-            "cv_text",
+            "cv_html",
             Response::Resume,
         ).await;
+    }
+
+    pub fn clone_with_max_tokens(&self, max_tokens: u16) -> Self {
+        let mut clone = self.clone();
+        clone.max_tokens = Some(max_tokens);
+
+        clone
     }
 }
 

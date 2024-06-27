@@ -1,88 +1,112 @@
-Generate a Markdown resume using the following data from next message.
-The Data is JSON. But result need as Markdown which I can use in email for sending it to my HR.
+Generate an HTML resume using the following data from next message.
+The Data is JSON. But result need as HTML plain text which I can use in email for sending it to my HR.
 Save generated resume.
 
-Ensure that there are two spaces at the end of each line to create a proper new line in Markdown.
+Ensure the HTML is well-structured and styled with basic CSS for readability.
 
 example result
 ```
-# John Doe
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>John Doe - Resume</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .contact-info, .section {
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            border-bottom: 2px solid #333;
+            padding-bottom: 5px;
+        }
+        .contact-info p, .section p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
 
-**Email:** john.doe@example.com
-**Phone:** (123) 456-7890
-**LinkedIn:** [linkedin.com/in/johndoe](https://www.linkedin.com/in/johndoe)
-**GitHub:** [github.com/johndoe](https://github.com/johndoe)
-**Location:** San Francisco, CA
+    <h1>John Doe</h1>
 
----
+    <div class="contact-info">
+        <p><strong>Email:</strong> john.doe@example.com</p>
+        <p><strong>Phone:</strong> (123) 456-7890</p>
+        <p><strong>LinkedIn:</strong> <a href="https://www.linkedin.com/in/johndoe">linkedin.com/in/johndoe</a></p>
+        <p><strong>GitHub:</strong> <a href="https://github.com/johndoe">github.com/johndoe</a></p>
+        <p><strong>Location:</strong> San Francisco, CA</p>
+    </div>
 
-## Summary
+    <div class="section">
+        <h2>Summary</h2>
+        <p>Full-stack software engineer with 5+ years of experience in developing scalable web applications using modern technologies. Proven ability to deliver high-quality software efficiently.</p>
+    </div>
 
-Full-stack software engineer with 5+ years of experience in developing scalable web applications using modern technologies. Proven ability to deliver high-quality software efficiently.
+    <div class="section">
+        <h2>Experience</h2>
+        <p><strong>Software Engineer</strong></p>
+        <p><em>Tech Company Inc.</em> - <em>June 2020 - Present</em></p>
+        <ul>
+            <li>Developed web apps with JavaScript, React, Node.js</li>
+            <li>Implemented RESTful APIs and third-party integrations</li>
+            <li>Enhanced performance, reducing load times by 30%</li>
+        </ul>
+        <p><strong>Junior Software Engineer</strong></p>
+        <p><em>Startup XYZ</em> - <em>Jan 2018 - May 2020</em></p>
+        <ul>
+            <li>Assisted in developing a customer-facing app using Angular and Java</li>
+            <li>Wrote unit tests, performed code reviews</li>
+            <li>Contributed to agile processes and sprint planning</li>
+        </ul>
+    </div>
 
----
+    <div class="section">
+        <h2>Education</h2>
+        <p><strong>B.Sc. in Computer Science</strong></p>
+        <p><em>University of California, Berkeley</em> - <em>Graduated: May 2017</em></p>
+    </div>
 
-## Experience
+    <div class="section">
+        <h2>Skills</h2>
+        <p><strong>Languages:</strong> JavaScript, Java, Python</p>
+        <p><strong>Frameworks:</strong> React, Angular, Node.js</p>
+        <p><strong>Tools:</strong> Git, Docker, AWS</p>
+        <p><strong>Databases:</strong> MongoDB, MySQL</p>
+    </div>
 
-**Software Engineer**
-*Tech Company Inc.*
-*June 2020 - Present*
+    <div class="section">
+        <h2>Projects</h2>
+        <p><strong>Personal Finance Manager</strong></p>
+        <p><em>React, Node.js, MongoDB</em> - <a href="https://github.com/johndoe/project-a">GitHub</a></p>
+        <p><strong>E-commerce Platform</strong></p>
+        <p><em>Angular, Java, MySQL</em> - <a href="https://github.com/johndoe/project-b">GitHub</a></p>
+    </div>
 
-- Developed web apps with JavaScript, React, Node.js
-- Implemented RESTful APIs and third-party integrations
-- Enhanced performance, reducing load times by 30%
+    <div class="section">
+        <h2>Certifications</h2>
+        <p>CKA</p>
+        <p>AWS Solutions Architect</p>
+    </div>
 
-**Junior Software Engineer**
-*Startup XYZ*
-*Jan 2018 - May 2020*
+    <div class="section">
+        <h2>Interests</h2>
+        <p>Open-source contributions</p>
+        <p>Machine learning and AI</p>
+        <p>Hiking</p>
+    </div>
 
-- Assisted in developing a customer-facing app using Angular and Java
-- Wrote unit tests, performed code reviews
-- Contributed to agile processes and sprint planning
-
----
-
-## Education
-
-**B.Sc. in Computer Science**
-*University of California, Berkeley*
-*Graduated: May 2017*
-
----
-
-## Skills
-
-- **Languages:** JavaScript, Java, Python
-- **Frameworks:** React, Angular, Node.js
-- **Tools:** Git, Docker, AWS
-- **Databases:** MongoDB, MySQL
-
----
-
-## Projects
-
-**Personal Finance Manager**
-*React, Node.js, MongoDB*
-[GitHub](https://github.com/johndoe/project-a)
-
-**E-commerce Platform**
-*Angular, Java, MySQL*
-[GitHub](https://github.com/johndoe/project-b)
-
----
-
-## Certifications
-
-- **CKA**
-- **AWS Solutions Architect**
-
----
-
-## Interests
-
-- Open-source contributions
-- Machine learning and AI
-- Hiking
+</body>
+</html>
 ```
 
 Save it via function
