@@ -48,7 +48,7 @@ enum Command {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ApiUser {
-    id: i32
+    id: i32,
 }
 
 async fn create_user(client: &Client) -> Result<i32, reqwest::Error> {
@@ -71,7 +71,7 @@ async fn get_user_resume(client: &Client, user_id: i32, file: &mut NamedTempFile
     let status_code = response.status();
 
     if status_code == StatusCode::NOT_FOUND {
-        return Ok(false)
+        return Ok(false);
     }
 
     if !status_code.is_success() {
@@ -103,7 +103,7 @@ async fn get_user_id(pool: &Pool<Postgres>, chat_id: i64) -> Result<Option<i32>,
 
 async fn handle_message(
     params: ConfigParameters,
-    bot: Bot, msg: Message
+    bot: Bot, msg: Message,
 ) -> Result<(), teloxide::RequestError> {
     let chat_id = msg.chat.id;
 
@@ -114,7 +114,7 @@ async fn handle_message(
         None => {
             bot.send_message(
                 chat_id,
-                "You are not registered. Please contact with an admin to register."
+                "You are not registered. Please contact with an admin to register.",
             ).await.unwrap();
             return Ok(());
         }
@@ -122,6 +122,11 @@ async fn handle_message(
 
     let text = msg.text().unwrap();
     let reply = send_message(&params.client, user_id, text).await.unwrap();
+
+    if &reply == "generated" {
+        handle_cv(&bot, &params.client, user_id, msg.chat.id).await.expect("foo");
+    }
+
     bot.send_message(chat_id, reply).await.unwrap();
 
     Ok(())
@@ -156,13 +161,13 @@ async fn handle_command(
     match command {
         Command::Help => {
             bot.send_message(msg.chat.id, Command::descriptions().to_string()).await.expect("foo");
-        },
+        }
         Command::Start => {
             let code = &msg.text().unwrap()[7..];
             if code.len() > 0 {
                 handle_invite_link(params, bot, &msg, code).await.expect("foo");
             }
-        },
+        }
         Command::ShowMyInfo => {
             match get_user_id(&params.pool, msg.chat.id.0).await.expect("foo") {
                 Some(user_id) => {
@@ -172,13 +177,13 @@ async fn handle_command(
                     }
                     bot.send_message(
                         msg.chat.id,
-                        serde_json::to_string(&user_info).unwrap()
+                        serde_json::to_string(&user_info).unwrap(),
                     ).await.expect("foo");
-                },
+                }
                 None => {
                     bot.send_message(
                         msg.chat.id,
-                        "You are not registered. Please contact with an admin to register."
+                        "You are not registered. Please contact with an admin to register.",
                     ).await.unwrap();
                 }
             }
@@ -204,38 +209,44 @@ async fn handle_command(
         Command::CV => {
             match get_user_id(&params.pool, msg.chat.id.0).await.expect("foo") {
                 Some(user_id) => {
-                    let mut temp_file = NamedTempFile::new().unwrap();
-                    match get_user_resume(&params.client, user_id, &mut temp_file).await {
-                        Ok(true) => {
-                            bot.send_document(
-                                msg.chat.id,
-                                InputFile::file(temp_file.path()).file_name("cv.pdf")
-                            ).await.unwrap();
-                        },
-                        Ok(false) => {
-                            bot.send_message(
-                                msg.chat.id,
-                                "cv not found"
-                            ).await.unwrap();
-                        },
-                        Err(e) => {
-                            error!("get_user_cv error:\n{e:?}");
-                            bot.send_message(
-                                msg.chat.id,
-                                "cv not found error"
-                            ).await.unwrap();
-                        }
-                    }
-                },
+                    handle_cv(&bot, &params.client, user_id, msg.chat.id).await.expect("foo");
+                }
                 None => {
                     bot.send_message(
                         msg.chat.id,
-                        "You are not registered. Please contact with an admin to register."
+                        "You are not registered. Please contact with an admin to register.",
                     ).await.unwrap();
                 }
             }
         }
     };
+    Ok(())
+}
+
+
+async fn handle_cv(bot: &Bot, client: &Client, user_id: i32, chat_id: ChatId) -> Result<(), &'static str> {
+    let mut temp_file = NamedTempFile::new().unwrap();
+    match get_user_resume(client, user_id, &mut temp_file).await {
+        Ok(true) => {
+            bot.send_document(
+                chat_id,
+                InputFile::file(temp_file.path()).file_name("cv.pdf"),
+            ).await.unwrap();
+        }
+        Ok(false) => {
+            bot.send_message(
+                chat_id,
+                "cv not found",
+            ).await.unwrap();
+        }
+        Err(e) => {
+            error!("get_user_cv error:\n{e:?}");
+            bot.send_message(
+                chat_id,
+                "cv not found error",
+            ).await.unwrap();
+        }
+    }
     Ok(())
 }
 

@@ -41,7 +41,7 @@ API_URL=http://api:3000
   - [x] s3 work
   - [x] reset with delete saved
   - [x] add to telegram
-  - [ ] handle "generated" answer via tg
+  - [x] handle "generated" answer via tg
   - [ ] ~~save original markdown~~
   - [ ] normal format (prompt)
 - [ ] if first message will be too long (it's skip limit now)
@@ -51,7 +51,8 @@ API_URL=http://api:3000
     - [ ] telegram crash if bad api response (1)
   - [ ] ~~discord~~
   - [ ] ~~web~~
-- [ ] stream file instead cache
+- [ ] ~~stream file instead cache~~
+- [x] file saving into temporary file
 - [ ] real expectations
 - [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)
 
