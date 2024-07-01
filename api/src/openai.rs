@@ -1,3 +1,4 @@
+use std::env;
 use async_openai::Client;
 use async_openai::config::OpenAIConfig;
 use async_openai::error::OpenAIError;
@@ -13,7 +14,6 @@ use derivative::Derivative;
 use serde_json::{Value};
 
 
-const DEFAULT_MODEL: &str = "gpt-3.5-turbo";
 
 #[derive(Derivative)]
 #[derivative(Debug, Default)]
@@ -21,7 +21,6 @@ pub struct Request {
     api_key: String,
     #[derivative(Default(value = "512"))]
     max_tokens: u16,
-    #[derivative(Default(value = "DEFAULT_MODEL.to_string()"))]
     model: String,
     messages: Vec<ChatCompletionRequestMessage>,
     tool_calls: Option<Vec<ChatCompletionTool>>,
@@ -54,10 +53,14 @@ impl Request {
             false => None
         };
 
+        let model = model.unwrap_or_else(
+            || env::var("DEFAULT_MODEL").unwrap_or("gpt-3.5-turbo".to_string())
+        );
+
         Request {
             api_key,
             max_tokens: max_tokens.unwrap_or(512),
-            model: model.unwrap_or_else(|| DEFAULT_MODEL.to_string()),
+            model,
             messages,
             tool_calls,
         }
