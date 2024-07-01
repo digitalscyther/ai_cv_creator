@@ -48,7 +48,7 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
     let bucket_name = get_bucket_name();
 
     let default_max_tokens = Some(1000);
-    let a = match message.open_ai {
+    let asker = match message.open_ai {
         Some(open_ai) => Asker::new(
             open_ai.api_key.unwrap_or(default_api_key),
             open_ai.max_tokens.or(default_max_tokens),
@@ -63,9 +63,15 @@ async fn get_answer(app_state: AppState, user: user::User, message: UserMessage)
         )
     };
 
-    let mut dialogue = Dialogue::new(user, a, message.max_history, message.max_tokens);
+    let mut dialogue = Dialogue::new(user, asker, message.max_history, message.max_tokens);
 
-    let (mut response, mut instruction) = dialogue.process_message(Some(message.text.trim())).await;
+    let text = message.text.trim();
+
+    if text.len() > dialogue.get_max_message_length() {
+        return Ok(Answer::Message("Invalid message (to long)".to_string()))
+    }
+
+    let (mut response, mut instruction) = dialogue.process_message(Some(text)).await;
 
     while response.is_none() {
         (response, instruction) = dialogue.process_message(match response {
@@ -196,8 +202,8 @@ struct UserMessage {
 }
 
 async fn user_message(Path(id): Path<i32>, State(app_state): State<AppState>, Json(message): Json<UserMessage>) -> impl IntoResponse {
-    if let Ok(Some(u)) = user::User::get_user(&app_state.pool, id).await {
-        return match get_answer(app_state, u, message).await {
+    if let Ok(Some(user)) = user::User::get_user(&app_state.pool, id).await {
+        return match get_answer(app_state, user, message).await {
             Ok(Answer::Message(text)) => Ok(Json(text)),
             Ok(Answer::Generated) => Ok(Json("generated".to_string())),
             _ => Err(StatusCode::INTERNAL_SERVER_ERROR),

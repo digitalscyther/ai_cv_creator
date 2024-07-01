@@ -190,6 +190,10 @@ impl Dialogue {
             None => messages
         }
     }
+
+    pub fn get_max_message_length(&self) -> usize {
+        return self.max_history
+    }
 }
 
 fn merge_messages(messages0: Vec<ChatCompletionRequestMessage>, messages1: Vec<ChatCompletionRequestMessage>) -> Vec<ChatCompletionRequestMessage> {

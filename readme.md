@@ -37,23 +37,26 @@ API_URL=http://api:3000
   - [x] customization dialogue params
   - [x] build docker
   - [x] move to separated dir
-- [ ] pdf generation
+- [x] pdf generation
   - [x] s3 work
   - [x] reset with delete saved
   - [x] add to telegram
   - [x] handle "generated" answer via tg
-  - [ ] ~~save original markdown~~
-  - [ ] normal format (prompt)
-- [ ] if first message will be too long (it's skip limit now)
+  - [x] normal format (prompt)
+    - [x] change to html
+    - [ ] make it better
+  - [ ] save original ~~markdown~~ html
+  - [ ] update result
+- [x] if first message will be too long (it's skip limit now)
 - [x] interface
   - [x] telegram
     - [ ] hide admin commands
-    - [ ] telegram crash if bad api response (1)
   - [ ] ~~discord~~
   - [ ] ~~web~~
 - [ ] ~~stream file instead cache~~
 - [x] file saving into temporary file
 - [ ] real expectations
+  - [ ] telegram crash if bad api response (1)
 - [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)
 
 (1)
