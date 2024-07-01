@@ -37,7 +37,8 @@ API_URL=http://api:3000
   - [x] customization dialogue params
   - [x] build docker
   - [x] move to separated dir
-- [x] pdf generation
+- [ ] jamming. when some of the responses are null, no CV is generated. but all the answers have been given.
+- [ ] pdf generation
   - [x] s3 work
   - [x] reset with delete saved
   - [x] add to telegram
@@ -45,6 +46,7 @@ API_URL=http://api:3000
   - [x] normal format (prompt)
     - [x] change to html
     - [ ] make it better
+  - [ ] not working! (2)
   - [ ] save original ~~markdown~~ html
   - [ ] update result
 - [x] if first message will be too long (it's skip limit now)
@@ -67,4 +69,11 @@ API_URL=http://api:3000
 2024-06-06 01:30:13 called `Result::unwrap()` on an `Err` value: reqwest::Error { kind: Request, url: Url { scheme: "http", cannot_be_a_base: false, username: "", password: None, host: Some(Domain("api")), port: Some(3000), path: "/users/5/message", query: None, fragment: None }, source: hyper_util::client::legacy::Error(SendRequest, hyper::Error(IncompleteMessage)) }
 2024-06-06 01:30:13 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 2024-06-06 01:32:38 thread 'main' panicked at /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/teloxide-0.12.2/src/dispatching/dispatcher.rs:410:43:
+```
+(2)
+```text
+2024-07-01 18:57:52 thread 'tokio-runtime-worker' panicked at src/main.rs:86:79:
+2024-07-01 18:57:52 Failed generate pdf: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+2024-07-01 19:04:09 thread 'tokio-runtime-worker' panicked at src/main.rs:86:79:
+2024-07-01 19:04:09 Failed generate pdf: Os { code: 2, kind: NotFound, message: "No such file or directory" }
 ```
