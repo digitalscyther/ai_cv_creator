@@ -121,7 +121,12 @@ async fn handle_message(
     };
 
     let text = msg.text().unwrap();
-    let reply = send_message(&params.client, user_id, text).await.unwrap();
+    let reply = send_message(&params.client, user_id, text).await.unwrap_or_else(
+        |e| {
+            error!("*Failed get api response:\n{:?}", e);
+            "Exception #5239740191".to_string()
+        }
+    );
 
     if &reply == "generated" {
         handle_cv(&bot, &params.client, user_id, msg.chat.id).await.expect("foo");
@@ -256,12 +261,18 @@ struct ConfigParameters {
     client: Client,
 }
 
+fn check_before() {
+    get_api_url();
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(EnvFilter::from_default_env())
         .init();
+
+    check_before();
 
     info!("Started...");
 

@@ -56,7 +56,8 @@ API_URL=http://api:3000
 - [ ] ~~stream file instead cache~~
 - [x] file saving into temporary file
 - [ ] real expectations
-  - [ ] telegram crash if bad api response (1)
+  - [ ] real behavior instead of unwrap and expect
+  - [x] telegram crash if bad api response (1)
 - [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)
 
 (1)
