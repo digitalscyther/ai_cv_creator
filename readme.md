@@ -4,7 +4,7 @@ api:
 HOST=0.0.0.0
 DATABASE_URL=postgres://portfolio:example@postgres/portfolio
 OPENAI_API_KEY=foo
-PROGRAM_FP=/bin/wkhtmltopdf
+PROGRAM_FP=wkhtmltopdf
 MINIO_URL=http://minio:9000
 MINIO_ACCESS_KEY=<access_key>
 MINIO_SECRET_KEY=<secret_key>
@@ -37,8 +37,8 @@ API_URL=http://api:3000
   - [x] customization dialogue params
   - [x] build docker
   - [x] move to separated dir
-- [ ] jamming. when some of the responses are null, no CV is generated. but all the answers have been given.
-- [ ] pdf generation
+- [x] jamming. when some of the responses are null, no CV is generated. but all the answers have been given.
+- [x] pdf generation
   - [x] s3 work
   - [x] reset with delete saved
   - [x] add to telegram
@@ -46,7 +46,8 @@ API_URL=http://api:3000
   - [x] normal format (prompt)
     - [x] change to html
     - [ ] make it better
-  - [ ] not working! (2)
+  - [x] ~~not~~ working! (2)
+  - [ ] write that need to wait until pdf will be generated
   - [ ] save original ~~markdown~~ html
   - [ ] update result
 - [x] if first message will be too long (it's skip limit now)
@@ -60,7 +61,7 @@ API_URL=http://api:3000
 - [ ] real expectations
   - [ ] real behavior instead of unwrap and expect
     - [ ] understandable error text instead of unwrap or expect("useless text")
-  - [x] telegram crash if bad api response (1)
+  - [x] working ~~telegram crash if bad api response~~ (1)
 - [ ] add abstraction level for use different AI API/local (Google/OpenAI/Llama)
 
 (1)

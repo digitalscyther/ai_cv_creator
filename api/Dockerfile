@@ -1,9 +1,7 @@
 # syntax=docker/dockerfile:1
 
-ARG RUST_VERSION=1.78.0
+ARG RUST_VERSION=1.79.0
 ARG APP_NAME=api
-
-FROM surnet/alpine-wkhtmltopdf:3.20.0-0.12.6-small as wkhtmltopdf
 
 FROM rust:${RUST_VERSION}-slim AS build
 ARG APP_NAME
@@ -28,7 +26,7 @@ FROM debian:bookworm-slim AS final
 
 ARG UID=10001
 RUN apt-get update && \
-    apt-get install -y libssl3 ca-certificates && \
+    apt-get install -y libssl3 ca-certificates wkhtmltopdf && \
     rm -rf /var/lib/apt/lists/*
 
 RUN adduser \
@@ -41,7 +39,6 @@ RUN adduser \
     appuser
 USER appuser
 
-COPY --from=wkhtmltopdf /bin/wkhtmltopdf /bin/
 COPY --from=build /bin/server /bin/
 COPY src/data src/data
 
